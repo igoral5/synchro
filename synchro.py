@@ -949,9 +949,6 @@ class SynchroRoutes(object):
                 elif operation == 'delete':
                     delete += len(self.report['change'][operation][mr_id])
         return (insert, update, delete)
-        
-            
-
 
 class ThreadPool(object):
     '''Представляет из себя пул потоков, он будет следить за их количеством и выполнением'''
