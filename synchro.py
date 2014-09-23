@@ -57,6 +57,7 @@ parser.add_argument("--log-json", dest="json_log", help="Name file json log")
 parser.add_argument("--correct", dest='correct_transport_type', help='Correct transport type 2->1, 3->1', action='store_true')
 parser.add_argument("--distance", dest='distance', help="The maximum allowable distance from the stop to the geometry of the route, default 20 meters", type=int, default=20)
 parser.add_argument("--create", dest='create_schedule', help='Create the missing schedule', action='store_true')
+parser.add_argument("--only", dest='only', help='Create file for bulk interface ElasticSearch, wthout load', action='store_true')
 args = parser.parse_args()
 
 #Константа, словарь преобразования url в наименование региона
@@ -137,25 +138,32 @@ def http_request(request, handler):
     n = 1
     while True:
         try:
-            auth = base64.encodestring('%s:%s' % (args.user, args.passwd)).replace('\n', '')
-            webservice = httplib.HTTP(args.host)
-            webservice.putrequest('GET', args.url + request)
-            webservice.putheader('Host', args.host)
-            webservice.putheader('Authorization', 'Basic %s' % auth)
-            webservice.putheader('Accept-Encoding', 'gzip, deflate')
-            webservice.endheaders()
-            (statuscode, statusmessage, header) = webservice.getreply()
-            if statuscode == 200:
-                stream = cStringIO.StringIO(webservice.getfile().read())
-                if header.getheader('Content-Encoding') == 'gzip':
-                    gzipper = gzip.GzipFile(fileobj = stream)
-                    handler.ParseFile(gzipper)
-                    return
+            try:
+                auth = base64.encodestring('%s:%s' % (args.user, args.passwd)).replace('\n', '')
+                webservice = httplib.HTTP(args.host)
+                webservice.putrequest('GET', args.url + request)
+                webservice.putheader('Host', args.host)
+                webservice.putheader('Authorization', 'Basic %s' % auth)
+                webservice.putheader('Accept-Encoding', 'gzip, deflate')
+                webservice.endheaders()
+                (statuscode, statusmessage, header) = webservice.getreply()
+                if statuscode == 200:
+                    stream = cStringIO.StringIO(webservice.getfile().read())
+                    if header.getheader('Content-Encoding') == 'gzip':
+                        gzipper = gzip.GzipFile(fileobj = stream)
+                        handler.ParseFile(gzipper)
+                        return
+                    else:
+                        handler.ParseFile(stream)
+                        return 
                 else:
-                    handler.ParseFile(stream)
-                    return 
-            else:
-                raise RuntimeError(u'[http://%s%s] %d %s' % (args.host, args.url + request, statuscode, statusmessage ))
+                    raise RuntimeError(u'%d %s' % (statuscode, statusmessage ))
+            except (RuntimeError, socket.timeout), e:
+                message = u'[http://%s%s] %s' % (args.host, args.url + request, str(e))
+                if type(e) == RuntimeError:
+                    raise RuntimeError(message)
+                else:
+                    raise socket.timeout(message)
         except Exception, e:
             if n == args.num_try:
                 raise
@@ -587,7 +595,11 @@ class SynchroStations(object):
     
     def synchro(self):
         self.checksum, self.change = check_table('tbstops')
-        self.ids = get_local_ids(name_index_es[args.url[1:]], 'station')
+        if not args.only:
+            self.ids = get_local_ids(name_index_es[args.url[1:]], 'station')
+        else:
+            self.ids = set()
+            self.change = True
         self.process_stops()
     
     def process_stops(self):
@@ -709,14 +721,23 @@ class SynchroRoutes(object):
             self.route_ids_lock.release()
     
     def present_route_id(self, doc_id):
-        if doc_id in self._route_ids:
-            return True
-        else:
-            return False
+        self.route_ids_lock.acquire()
+        try:
+            if doc_id in self._route_ids:
+                return True
+            else:
+                return False
+        finally:
+            self.route_ids_lock.release()
+            
 
     def synchro(self, file_descriptor):
         self.checksum, self.change = check_table('tbmarshes')
-        self._route_ids = get_local_ids(name_index_es[args.url[1:]], 'route')
+        if not args.only:
+            self._route_ids = get_local_ids(name_index_es[args.url[1:]], 'route')
+        else:
+            self._route_ids = set()
+            self.change = True
         self.process_marshes()
         self.process_marshvariants()
         self.process_raspvariants()
@@ -1404,6 +1425,11 @@ try:
     f = codecs.open(name_file, "w", encoding="utf-8")
     change_checksum = synchro_routes.synchro(f)
     f.close()
+    if args.only:
+        (dir_insert, dir_update, dir_delete) = synchro_routes.summary()
+        (st_insert, st_update, st_delete) = synchro_routes.stations.summary()
+        logger.info(u'Создан файл %s, в нем: %d направлений %d остановок', name_file, dir_insert, st_insert)    
+        sys.exit(0)
     statinfo = os.stat(name_file)
     if statinfo.st_size > 0:
         logger.info(u'Загрузка обновлений в ElasticSearch')
