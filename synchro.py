@@ -1428,7 +1428,7 @@ try:
     if args.only:
         (dir_insert, dir_update, dir_delete) = synchro_routes.summary()
         (st_insert, st_update, st_delete) = synchro_routes.stations.summary()
-        logger.info(u'Создан файл %s, в нем: %d направлений %d остановок', name_file, dir_insert, st_insert)    
+        logger.info(u'Создан файл %s, в нем: %d направлений %d остановок, за %.1f сек.', name_file, dir_insert, st_insert, time.time() - current_time)    
         sys.exit(0)
     statinfo = os.stat(name_file)
     if statinfo.st_size > 0:
