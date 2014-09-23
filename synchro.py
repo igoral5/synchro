@@ -828,7 +828,7 @@ class SynchroRoutes(object):
             if route != route_es:
                 meta = {'index': {'_index': name_index_es[args.url[1:]], '_type': 'route', '_id': complex_id}}
                 save_json_to_file(file_descriptor, meta, route)
-                report_description = u'%8s %-80s %s/%d/%d' % (route['ru']['name'], route['ru']['direction'], complex_id.split(':')[0], mr_id, direction)
+                report_description = u'%8s %-80s %s/%d/%d' % (route['name'], route['direction'], complex_id.split(':')[0], mr_id, direction)
                 self.report_changes('update', mr_id, direction, report_description)
             for item_station in route['stations']:
                 st_id = int(item_station['id'].split(':')[-1])
