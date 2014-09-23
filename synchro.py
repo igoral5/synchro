@@ -159,7 +159,7 @@ def http_request(request, handler):
                 else:
                     raise RuntimeError(u'%d %s' % (statuscode, statusmessage ))
             except (RuntimeError, socket.timeout), e:
-                message = u'[http://%s%s] %s' % (args.host, args.url + request, str(e))
+                message = u'[http://%s%s try:%d] %s' % (args.host, args.url + request, n, str(e))
                 if type(e) == RuntimeError:
                     raise RuntimeError(message)
                 else:
