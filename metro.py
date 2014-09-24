@@ -217,15 +217,12 @@ class SynchroRoutes:
         meta = {'index': {'_index': const.name_index_es[args.url[1:]], '_type': 'route', '_id': complex_id}}
         util.save_json_to_file(file_descriptor, meta, route)
 
-if not args.only_create:
-    es_client = Elasticsearch([{'host': args.host_es, 'port': args.port_es}])
 current_time = time.time()
-
 group_code = 8002
-
 name_file = 'metro.json'
 f = codecs.open(name_file, "w", encoding="utf-8")
 if not args.only_create:
+    es_client = Elasticsearch([{'host': args.host_es, 'port': args.port_es}])
     util.delete_old_doc(es_client, 'region_moskva', 'route', group_code, f)
     util.delete_old_doc(es_client, 'region_moskva', 'geometry', group_code, f)
     util.delete_old_doc(es_client, 'region_moskva', 'station', group_code, f)
@@ -236,7 +233,6 @@ synchro_stations = SynchroStations(metro_json)
 synchro_stations.synchro()
 synchro_routes = SynchroRoutes(synchro_stations, metro_json)
 synchro_routes.synchro(f)
-
 f.close()
 if not args.only_create:
     os.system('curl -S -XPOST "http://%s:%d/_bulk" --data-binary @%s' % (args.host_es, args.port_es, name_file))
