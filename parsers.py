@@ -56,8 +56,6 @@ class MarshesXMLParser(XMLParser):
             except:
                 if self.logger:
                     self.logger.debug(u'Неизвестный тип в таблице tbmarshes mr_id=%s' % attrs['mr_id'])
-                else:
-                    raise
 
 class MarshesCSVParser(CSVParser):
     '''CSV Парсер запроса getMarshes'''
@@ -80,8 +78,6 @@ class MarshesCSVParser(CSVParser):
         except:
             if self.logger:
                 self.logger.debug(u'Неизвестный тип в таблице tbmarshes mr_id=%s' % row[0])
-            else:
-                raise
 
 class MarshVariantsXMLParser(XMLParser):
     '''XML парсер запроса getMarshVariants'''
@@ -105,18 +101,13 @@ class MarshVariantsXMLParser(XMLParser):
             if mv_startdate > self.current_time:
                 return
             mv_checksum = int(attrs['mv_checksum'])
+            change = True
             if self.redis_client and self.url:
                 redis_key = 'checksum:tn:%s:marshvariants:%d:%d' % (self.url, mr_id, mv_id)
                 redis_checksum = self.redis_client.get(redis_key)
                 if redis_checksum:
                     if mv_checksum == int(redis_checksum):
                         change = False
-                    else:
-                        change = True
-                else:
-                    change = True
-            else:
-                change = True
             self.marsh_variants[mr_id][mv_startdate][mv_id] = { 'checksum': mv_checksum, 'change': change }
 
 class MarshVariantsCSVParser(CSVParser):
@@ -140,18 +131,13 @@ class MarshVariantsCSVParser(CSVParser):
         if mv_startdate > self.current_time:
             return
         mv_checksum = int(row[6])
+        change = True
         if self.redis_client and self.url:
             redis_key = 'checksum:tn:%s:marshvariants:%d:%d' % (self.url, mr_id, mv_id)
             redis_checksum = self.redis_client.get(redis_key)
             if redis_checksum:
                 if mv_checksum == int(redis_checksum):
                     change = False
-                else:
-                    change = True
-            else:
-                change = True
-        else:
-            change = True
         self.marsh_variants[mr_id][mv_startdate][mv_id] = { 'checksum': mv_checksum, 'change': change }
                                    
 class RaspVariantsXMLParser(XMLParser):
@@ -184,18 +170,13 @@ class RaspVariantsXMLParser(XMLParser):
             if rv_startdate > self.current_time:
                 return
             rv_checksum = int(attrs['rv_checksum'])
+            change = True
             if self.redis_client and self.url:
                 redis_key = 'checksum:tn:%s:raspvariants:%d:%d:%d' % (self.url, mr_id, srv_id, rv_id)
                 redis_checksum = self.redis_client.get(redis_key)
                 if redis_checksum:
                     if rv_checksum == int(redis_checksum):
                         change = False
-                    else:
-                        change = True
-                else:
-                    change = True
-            else:
-                change = True
             mask = 1
             for day_week in xrange(7):
                 if mask & rv_dow:
@@ -231,18 +212,13 @@ class RaspVariantsCSVParser(CSVParser):
         if rv_startdate > self.current_time:
             return
         rv_checksum = int(row[9])
+        change = True
         if self.redis_client and self.url:
             redis_key = 'checksum:tn:%s:raspvariants:%d:%d:%d' % (self.url, mr_id, srv_id, rv_id)
             redis_checksum = self.redis_client.get(redis_key)
             if redis_checksum:
                 if rv_checksum == int(redis_checksum):
                     change = False
-                else:
-                    change = True
-            else:
-                change = True
-        else:
-            change = True
         mask = 1
         for day_week in xrange(7):
             if mask & rv_dow:
@@ -322,9 +298,7 @@ class RaspTimeXMLParser(XMLParser):
             except ValueError:
                 if self.logger:
                     self.logger.info(u'В таблице tbrasptime неверные данные rt_time="%s" при srv_id="%s" rv_id="%s"' % (attrs['rt_time'], attrs['srv_id'], attrs['rv_id']))
-                    return
-                else:
-                    raise
+                return
             rt_orderby = int(attrs['rt_orderby'])
             gr_id = int(attrs['gr_id'])
             rt_racenum = int(attrs['rt_racenum'])
@@ -345,9 +319,7 @@ class RaspTimeCSVParser(CSVParser):
         except ValueError:
             if self.logger:
                 self.logger.info(u'В таблице tbrasptime неверные данные rt_time="%s" при srv_id="%s" rv_id="%s"' % (row[8], row[0], row[1]))
-                return
-            else:
-                raise
+            return
         rt_orderby = int(row[3])
         gr_id = int(row[2])
         rt_racenum = int(row[10])
