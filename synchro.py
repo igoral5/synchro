@@ -15,7 +15,7 @@ import collections
 import threading
 import time
 import socket
-import logging
+import logging.handlers
 import unicodecsv
 import xml.parsers.expat
 import json
@@ -117,12 +117,12 @@ ch.setLevel(logging.INFO)
 ch.setFormatter(formatter)
 logger.addHandler(ch)
 if args.txt_log:
-    fn = logging.FileHandler(args.txt_log, encoding='utf-8')
-    fn.setLevel(logging.DEBUG)
-    fn.setFormatter(formatter)
-    logger.addHandler(fn)
+    fh = logging.handlers.TimedRotatingFileHandler(args.txt_log, encoding='utf-8', when='midnight', backupCount=7)
+    fh.setLevel(logging.DEBUG)
+    fh.setFormatter(formatter)
+    logger.addHandler(fh)
 if args.json_log:
-    jh = logging.FileHandler(args.json_log, encoding='utf-8')
+    jh = logging.handlers.TimedRotatingFileHandler(args.json_log, encoding='utf-8', when='midnight', backupCount=7)
     jh.setLevel(logging.DEBUG)
     jformatter = JSONFormatter()
     jh.setFormatter(jformatter)
