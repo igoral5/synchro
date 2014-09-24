@@ -328,7 +328,7 @@ class SynchroRoutes(object):
         else:
             handler = parsers.RaspVariantsCSVParser(current_time, redis_client, args.url[1:])
             request = '/getRaspVariants.php?fmt=csv'
-        util.http_request(request, handler, logger=logger)
+        util.http_request(request, handler, args, logger=logger)
         for mr_id in handler.rasp_variants:
             for day_week in handler.rasp_variants[mr_id]:
                 rv_startdate = sorted(handler.rasp_variants[mr_id][day_week].keys())[-1]

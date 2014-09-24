@@ -220,7 +220,6 @@ class SynchroRoutes:
 
 if not args.only_create:
     es_client = Elasticsearch([{'host': args.host_es, 'port': args.port_es}])
-current_day = (datetime.date.today() - datetime.date.fromtimestamp(0)).days
 current_time = time.time()
 
 group_code = 8002
@@ -242,9 +241,3 @@ synchro_routes.synchro(f)
 f.close()
 if not args.only_create:
     os.system('curl -S -XPOST "http://%s:%d/_bulk" --data-binary @%s' % (args.host_es, args.port_es, name_file))
-
-
-
-
-
-
