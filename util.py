@@ -68,8 +68,6 @@ def http_request(request, handler, args, logger=None):
                 raise
             if logger:
                 logger.exception(e)
-            else:
-                raise
         time.sleep(n * 5)
         n += 1
 
@@ -83,8 +81,6 @@ def get_local_ids(es_client, index, doc_type, group_code):
     except:
         pass
     return ids
-
-
 
 def delete_old_files(mask, days_delta, current_time, logger=None):
     '''Удаление json файлов, которые старее days_delta дней'''

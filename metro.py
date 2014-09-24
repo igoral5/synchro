@@ -3,7 +3,6 @@
 '''Скрипт создает маршруты метро'''
 
 import time
-import datetime
 import argparse
 import os
 import sys

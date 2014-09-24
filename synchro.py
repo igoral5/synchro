@@ -50,9 +50,9 @@ argparser.add_argument("--port-es", dest='port_es', help='Number port ElasticSea
 argparser.add_argument("--log-txt", dest="txt_log", help="Name file text log")
 argparser.add_argument("--log-json", dest="json_log", help="Name file json log")
 argparser.add_argument("--correct", dest='correct_transport_type', help='Correct transport type 2->1, 3->1', action='store_true')
-argparser.add_argument("--distance", dest='distance', help="The maximum allowable distance from the stop to the geometry of the route, default 20 meters", type=int, default=20)
+argparser.add_argument("--distance", dest='distance', help="The maximum allowable distance from the stop to the geometry of the route, default 30 meters", type=int, default=30)
 argparser.add_argument("--create", dest='create_schedule', help='Create the missing schedule', action='store_true')
-argparser.add_argument("--only", dest='only', help='Create file for bulk interface ElasticSearch, wthout load', action='store_true')
+argparser.add_argument("--only", dest='only', help='Create file for bulk interface ElasticSearch, without load', action='store_true')
 args = argparser.parse_args()
 
 
