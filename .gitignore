@@ -6,3 +6,7 @@
 /.project
 /.pydevproject
 /synchro-moscow.log
+/metro.json
+/const.pyc
+/parsers.pyc
+/util.pyc

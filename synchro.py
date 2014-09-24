@@ -1,27 +1,20 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 # -*- coding: utf-8 -*-
 '''Скрипт сихронизирует данные сайта ТрансНавигации c ElasticSearch, скачка выполняется в несколько потоков'''
 
 import argparse
-import base64
 import sys
 import os
 import signal
 import codecs
 import locale
-import httplib
-import gzip
-import collections
 import threading
 import time
 import socket
 import logging.handlers
-import unicodecsv
-import xml.parsers.expat
 import json
 import datetime
 import tzlocal
-import cStringIO
 import redis
 from elasticsearch import Elasticsearch
 from elasticsearch.helpers import scan
@@ -30,7 +23,9 @@ from shapely.geometry import Point
 from shapely.ops import transform
 from functools import partial
 import pyproj
-import glob
+import util
+import const
+import parsers
 
 if sys.stdout.encoding is None:
     sys.stdout = codecs.getwriter(locale.getpreferredencoding())(sys.stdout)
@@ -38,48 +33,27 @@ if sys.stderr.encoding is None:
     sys.stderr = codecs.getwriter(locale.getpreferredencoding())(sys.stderr)
 locale.setlocale(locale.LC_ALL, '')
 
-parser = argparse.ArgumentParser(description='Synchro ElasticSearch use data TransNavigation.')
-parser.add_argument("--host", dest='host', help='Hostname site TransNavigation, default asip.office.transnavi.ru', default='asip.office.transnavi.ru')
-parser.add_argument("--url", dest='url', help='Path to script in site TransNavigation, default /podolsk', default='/podolsk')
-parser.add_argument("--user", dest='user', help='User name for site TransNavigation, default asipguest', default='asipguest')
-parser.add_argument("--passwd", dest='passwd', help='Password for site TransNavigation, default asipguest', default='asipguest')
-parser.add_argument("--try", dest='num_try', help='Number of attempts to obtain data from site TransNavigation, default 3, if 0 the number of attempts is infinitely', type=int, default=3)
-parser.add_argument("--thread", dest='max_thread', help="Maximum threads for downloading data, default 10", type=int, default=10)
-parser.add_argument("--timeout", dest='timeout', help="Connection timeout for http connection, default 30 s", type=int, default=30)
-parser.add_argument("--format", dest='format', help="Format of the information received, xml or csv, default xml", choices=['xml', 'csv'], default='xml')
-parser.add_argument("--host-redis", dest='host_redis', help='Host name redis, default localhost', default='localhost')
-parser.add_argument("--port-redis", dest='port_redis', help='Number port redis, default 6379', type=int, default=6379)
-parser.add_argument("--db-redis", dest='db_redis', help='Number database redis, default 0', type=int, default=0)
-parser.add_argument("--host-es", dest='host_es', help='Host name ElasticSearch, default localhost', default='localhost')
-parser.add_argument("--port-es", dest='port_es', help='Number port ElasticSearch, default 9200', type=int, default=9200)
-parser.add_argument("--log-txt", dest="txt_log", help="Name file text log")
-parser.add_argument("--log-json", dest="json_log", help="Name file json log")
-parser.add_argument("--correct", dest='correct_transport_type', help='Correct transport type 2->1, 3->1', action='store_true')
-parser.add_argument("--distance", dest='distance', help="The maximum allowable distance from the stop to the geometry of the route, default 20 meters", type=int, default=20)
-parser.add_argument("--create", dest='create_schedule', help='Create the missing schedule', action='store_true')
-parser.add_argument("--only", dest='only', help='Create file for bulk interface ElasticSearch, wthout load', action='store_true')
-args = parser.parse_args()
-
-#Константа, словарь преобразования url в наименование региона
-name_region = {'moscow': u'Москва', 'podolsk': u'Подольск', 'sochi': u'Сочи', 'krasnoyarsk': u'Красноярск'}
-
-#Константа, справочник типов транспорта
-transport_type = {0: u'unknown', 1: u'bus', 2: u'trolleybus', 3: u'tram', 4: u'taxi' }
-
-#Константа, наименование дней недели
-week_day = [u'понедельник', u'вторник', u'среда', u'четверг', u'пятница', u'суббота', u'воскресенье']
-
-#Константа, наименование дней недели in english
-week_day_en = [u'mon', u'tue', u'wed', u'thr', u'fri', u'sat', u'sun']
-
-#Константа, словарь преобразования url в имя индекса ElasticSearch
-name_index_es = {'moscow': u'region_moskva', 'podolsk': u'region_podolsk', 'sochi': u'region_sochi', 'krasnoyarsk': u'region_krasnoyarsk' }
-
-#Константа, словарь преобразования url в груповой код
-group_codes = {'podolsk': 46246000, 'sochi': 3000000, 'krasnoyarsk': 4000000, 'moscow': 45000000 }
-
-#Константа, словарь преобразования url в имя проекции
-name_proj = {'podolsk': 'EPSG:32637', 'sochi': 'EPSG:32637', 'krasnoyarsk': 'EPSG:32646', 'moscow': 'EPSG:32637'}
+argparser = argparse.ArgumentParser(description='Synchro ElasticSearch use data TransNavigation.')
+argparser.add_argument("--host", dest='host', help='Hostname site TransNavigation, default asip.office.transnavi.ru', default='asip.office.transnavi.ru')
+argparser.add_argument("--url", dest='url', help='Path to script in site TransNavigation, default /podolsk', default='/podolsk')
+argparser.add_argument("--user", dest='user', help='User name for site TransNavigation, default asipguest', default='asipguest')
+argparser.add_argument("--passwd", dest='passwd', help='Password for site TransNavigation, default asipguest', default='asipguest')
+argparser.add_argument("--try", dest='num_try', help='Number of attempts to obtain data from site TransNavigation, default 3, if 0 the number of attempts is infinitely', type=int, default=3)
+argparser.add_argument("--thread", dest='max_thread', help="Maximum threads for downloading data, default 10", type=int, default=10)
+argparser.add_argument("--timeout", dest='timeout', help="Connection timeout for http connection, default 30 s", type=int, default=30)
+argparser.add_argument("--format", dest='format', help="Format of the information received, xml or csv, default xml", choices=['xml', 'csv'], default='xml')
+argparser.add_argument("--host-redis", dest='host_redis', help='Host name redis, default localhost', default='localhost')
+argparser.add_argument("--port-redis", dest='port_redis', help='Number port redis, default 6379', type=int, default=6379)
+argparser.add_argument("--db-redis", dest='db_redis', help='Number database redis, default 0', type=int, default=0)
+argparser.add_argument("--host-es", dest='host_es', help='Host name ElasticSearch, default localhost', default='localhost')
+argparser.add_argument("--port-es", dest='port_es', help='Number port ElasticSearch, default 9200', type=int, default=9200)
+argparser.add_argument("--log-txt", dest="txt_log", help="Name file text log")
+argparser.add_argument("--log-json", dest="json_log", help="Name file json log")
+argparser.add_argument("--correct", dest='correct_transport_type', help='Correct transport type 2->1, 3->1', action='store_true')
+argparser.add_argument("--distance", dest='distance', help="The maximum allowable distance from the stop to the geometry of the route, default 20 meters", type=int, default=20)
+argparser.add_argument("--create", dest='create_schedule', help='Create the missing schedule', action='store_true')
+argparser.add_argument("--only", dest='only', help='Create file for bulk interface ElasticSearch, wthout load', action='store_true')
+args = argparser.parse_args()
 
 
 class JSONFormatter(logging.Formatter):
@@ -130,306 +104,6 @@ if args.json_log:
 logger.setLevel(logging.DEBUG)
 
 
-def tree():
-    return collections.defaultdict(tree)
-
-def http_request(request, handler):
-    '''Выполняет HTTP запрос'''
-    n = 1
-    while True:
-        try:
-            try:
-                auth = base64.encodestring('%s:%s' % (args.user, args.passwd)).replace('\n', '')
-                webservice = httplib.HTTP(args.host)
-                webservice.putrequest('GET', args.url + request)
-                webservice.putheader('Host', args.host)
-                webservice.putheader('Authorization', 'Basic %s' % auth)
-                webservice.putheader('Accept-Encoding', 'gzip, deflate')
-                webservice.endheaders()
-                (statuscode, statusmessage, header) = webservice.getreply()
-                if statuscode == 200:
-                    stream = cStringIO.StringIO(webservice.getfile().read())
-                    if header.getheader('Content-Encoding') == 'gzip':
-                        gzipper = gzip.GzipFile(fileobj = stream)
-                        handler.ParseFile(gzipper)
-                        return
-                    else:
-                        handler.ParseFile(stream)
-                        return 
-                else:
-                    raise RuntimeError(u'%d %s' % (statuscode, statusmessage ))
-            except (RuntimeError, socket.timeout), e:
-                message = u'[http://%s%s try:%d] %s' % (args.host, args.url + request, n, str(e))
-                if type(e) == RuntimeError:
-                    raise RuntimeError(message)
-                else:
-                    raise socket.timeout(message)
-        except Exception, e:
-            if n == args.num_try:
-                raise
-            logger.exception(e)
-            time.sleep(n * 5)
-        n += 1
-
-        
-class XMLParser(object):
-    '''Общий класс XML парсера'''
-    def __init__(self):
-        self._parser = xml.parsers.expat.ParserCreate()
-        self._parser.StartElementHandler = self.next
-    
-    def ParseFile(self, f):
-        self._parser.ParseFile(f)
-    
-    def next(self, tags, attrs):
-        pass
-
-class CSVParser(object):
-    '''Общий класс CSV парсера'''
-    def __init__(self):
-        pass
-    
-    def ParseFile(self, f):
-        parser = unicodecsv.UnicodeReader(f)
-        for i, row in enumerate(parser):
-            if i != 0: 
-                self.next(row)
-    
-    def next(self, row):
-        pass
-
-class MarshesXMLParser(XMLParser):
-    '''XML Парсер запроса getMarsches'''
-    def __init__(self):
-        super(MarshesXMLParser, self).__init__()
-        self.marshes = {}
-
-    def next(self, tag, attrs):
-        if tag == 'row':
-            try:
-                mr_id = int(attrs['mr_id'])
-                tt_id = int(attrs['tt_id'])
-                if args.correct_transport_type and (tt_id == 2 or tt_id == 3):
-                    tt_id = 1
-                self.marshes[mr_id] = { 'transport': transport_type[tt_id], 'name': attrs['mr_num'], 'description': attrs['mr_title'] }
-            except:
-                logger.debug(u'Неизвестный тип в таблице tbmarshes mr_id=%s' % attrs['mr_id'])
-
-class MarshesCSVParser(CSVParser):
-    '''CSV Парсер запроса getMarshes'''
-    def __init__(self):
-        super(MarshesCSVParser, self).__init__()
-        self.marshes = {}
-    
-    def next(self, row):
-        try:
-            mr_id = int(row[0])
-            tt_id = int(row[1])
-            if args.correct_transport_type and (tt_id == 2 or tt_id == 3):
-                tt_id = 1
-            self.marshes[mr_id] = { 'transport': transport_type[tt_id], 'name': row[3], 'description': row[4] }
-        except:
-            logger.debug(u'Неизвестный тип в таблице tbmarshes mr_id=%s' % row[0])
-
-class MarshVariantsXMLParser(XMLParser):
-    '''XML парсер запроса getMarshVariants'''
-    def __init__(self):
-        super(MarshVariantsXMLParser, self).__init__()
-        self.marsh_variants = tree()
-    
-    def next(self, tag, attrs):
-        if tag == 'row':
-            mr_id = int(attrs['mr_id'])
-            mv_id = int(attrs['mv_id'])
-            mv_enddateexists = int(attrs['mv_enddateexists'])
-            if mv_enddateexists:
-                mv_enddate = time.mktime(time.strptime(attrs['mv_enddate'], "%Y-%m-%d %H:%M:%S"))
-                if mv_enddate < current_time:
-                    return
-            mv_startdate = time.mktime(time.strptime(attrs['mv_startdate'], "%Y-%m-%d %H:%M:%S"))
-            if mv_startdate > current_time:
-                return
-            mv_checksum = int(attrs['mv_checksum'])
-            redis_key = 'checksum:tn:%s:marshvariants:%d:%d' % (args.url[1:], mr_id, mv_id)
-            redis_checksum = redis_client.get(redis_key)
-            if redis_checksum:
-                if mv_checksum == int(redis_checksum):
-                    change = False
-                else:
-                    change = True
-            else:
-                change = True
-            self.marsh_variants[mr_id][mv_startdate][mv_id] = { 'checksum': mv_checksum, 'change': change }
-
-class MarshVariantsCSVParser(CSVParser):
-    '''CSV парсер запроса getMarshVariants'''
-    def __init__(self):
-        super(MarshVariantsCSVParser, self).__init__()
-        self.marsh_variants = tree()
-    
-    def next(self, row):
-        mr_id = int(row[1])
-        mv_id = int(row[0])
-        mv_enddateexists = int(row[5])
-        if mv_enddateexists:
-            mv_enddate = time.mktime(time.strptime(row[4], "%Y-%m-%d %H:%M:%S"))
-            if mv_enddate < current_time:
-                return
-        mv_startdate = time.mktime(time.strptime(row[3], "%Y-%m-%d %H:%M:%S"))
-        if mv_startdate > current_time:
-            return
-        mv_checksum = int(row[6])
-        redis_key = 'checksum:tn:%s:marshvariants:%d:%d' % (args.url[1:], mr_id, mv_id)
-        redis_checksum = redis_client.get(redis_key)
-        if redis_checksum:
-            if mv_checksum == int(redis_checksum):
-                change = False
-            else:
-                change = True
-        else:
-            change = True
-        self.marsh_variants[mr_id][mv_startdate][mv_id] = { 'checksum': mv_checksum, 'change': change }
-                                   
-class RaspVariantsXMLParser(XMLParser):
-    '''XML парсер запроса getRaspVariants'''
-    def __init__(self):
-        super(RaspVariantsXMLParser, self).__init__()
-        self.rasp_variants = tree()
-    
-    def next(self, tag, attrs):
-        if tag == 'row':
-            rv_enable = int(attrs['rv_enable'])
-            if not rv_enable:
-                return
-            rv_enddateexists = int(attrs['rv_enddateexists'])
-            if rv_enddateexists:
-                rv_enddate = time.mktime(time.strptime(attrs['rv_enddate'], "%Y-%m-%d %H:%M:%S"))
-                if rv_enddate < current_time:
-                    return
-            mr_id = int(attrs['mr_id'])
-            srv_id = int(attrs['srv_id'])
-            rv_id = int(attrs['rv_id'])
-            try:
-                rv_dow = int(attrs['rv_dow']) & 127
-            except:
-                rv_dow = 127
-            rv_startdate = time.mktime(time.strptime(attrs['rv_startdate'], "%Y-%m-%d %H:%M:%S"))
-            if rv_startdate > current_time:
-                return
-            rv_checksum = int(attrs['rv_checksum'])
-            redis_key = 'checksum:tn:%s:raspvariants:%d:%d:%d' % (args.url[1:], mr_id, srv_id, rv_id)
-            redis_checksum = redis_client.get(redis_key)
-            if redis_checksum:
-                if rv_checksum == int(redis_checksum):
-                    change = False
-                else:
-                    change = True
-            else:
-                change = True
-            mask = 1
-            for day_week in xrange(7):
-                if mask & rv_dow:
-                    self.rasp_variants[mr_id][day_week][rv_startdate][(srv_id, rv_id)] = { 'mask': rv_dow, 'checksum': rv_checksum, 'change': change }
-                mask = mask << 1
-
-class RaspVariantsCSVParser(CSVParser):
-    '''CSV парсер запроса getRaspVariants'''
-    def __init__(self):
-        super(RaspVariantsCSVParser, self).__init__()
-        self.rasp_variants = tree()
-    
-    def next(self, row):
-        rv_enable = int(row[10])
-        if not rv_enable:
-            return
-        rv_enddateexists = int(row[7])
-        if rv_enddateexists:
-            rv_enddate = time.mktime(time.strptime(row[6], "%Y-%m-%d %H:%M:%S"))
-            if rv_enddate < current_time:
-                return
-        mr_id = int(row[2])
-        srv_id = int(row[0])
-        rv_id = int(row[1])
-        try:
-            rv_dow = int(row[3]) & 127
-        except:
-            rv_dow = 127
-        rv_startdate = time.mktime(time.strptime(row[5], "%Y-%m-%d %H:%M:%S"))
-        if rv_startdate > current_time:
-            return
-        rv_checksum = int(row[9])
-        redis_key = 'checksum:tn:%s:raspvariants:%d:%d:%d' % (args.url[1:], mr_id, srv_id, rv_id)
-        redis_checksum = redis_client.get(redis_key)
-        if redis_checksum:
-            if rv_checksum == int(redis_checksum):
-                change = False
-            else:
-                change = True
-        else:
-            change = True
-        mask = 1
-        for day_week in xrange(7):
-            if mask & rv_dow:
-                self.rasp_variants[mr_id][day_week][rv_startdate][(srv_id, rv_id)] = { 'mask': rv_dow, 'checksum': rv_checksum, 'change': change }
-            mask = mask << 1
-
-class RaceCardXMLParser(XMLParser):
-    '''XML парсер запроса getRaceCard, последовательности остановок направления'''
-    def __init__(self):
-        super(RaceCardXMLParser, self).__init__()
-        self.race_card = tree()
-    
-    def next(self, tag, attrs):
-        if tag == 'row':
-            direction = ord(attrs['rl_racetype'][0]) - ord('A')
-            rc_orderby = int(attrs['rc_orderby'])
-            st_id = int(attrs['st_id'])
-            rc_distance = float(attrs['rc_distance'])
-            self.race_card[direction][rc_orderby] = { 'st_id': st_id, 'distance': rc_distance }
-
-
-class RaceCardCSVParser(CSVParser):
-    '''CSV парсер запроса getRaceCard, последовательности остановок направления'''
-    def __init__(self):
-        super(RaceCardCSVParser, self).__init__()
-        self.race_card = tree()
-    
-    def next(self, row):
-        direction = ord(row[1][0]) - ord('A')
-        rc_orderby = int(row[2])
-        st_id = int(row[3])
-        rc_distance = float(row[5])
-        self.race_card[direction][rc_orderby] = { 'st_id': st_id, 'distance': rc_distance }
-
-
-class RaceCoordXMLParser(XMLParser):
-    '''XML парсер запроса getRaceCoord, геометрии направления'''
-    def __init__(self):
-        super(RaceCoordXMLParser, self).__init__()
-        self.race_coord = tree()
-    
-    def next(self, tag, attrs):
-        if tag == 'row':
-            direction = ord(attrs['rl_racetype'][0]) - ord('A')
-            rd_orderby = int(attrs['rd_orderby'])
-            lat = float(attrs['rd_lat'])
-            lng = float(attrs['rd_long'])
-            self.race_coord[direction][rd_orderby] = {'coord': {'lat': lat, 'long': lng }}
-    
-
-class RaceCoordCSVParser(CSVParser):
-    '''CSV парсер запроса getRaceCoord, геометрии направления'''
-    def __init__(self):
-        super(RaceCoordCSVParser, self).__init__()
-        self.race_coord = tree()
-    
-    def next(self, row):
-        direction = ord(row[1][0]) - ord('A')
-        rd_orderby = int(row[2])
-        lat = float(row[3])
-        lng = float(row[4])
-        self.race_coord[direction][rd_orderby] = {'coord': {'lat': lat, 'long': lng }}
-
 def find_best_place(refer, index_st, st_id, rt_time):
     if index_st >= 0 and index_st < len(refer) and refer[index_st]['st_id'] == st_id:
         refer[index_st]['time'].append(rt_time)
@@ -445,158 +119,16 @@ def find_best_place(refer, index_st, st_id, rt_time):
                 refer[index_new]['time'].append(rt_time)
                 return
 
-class RaspTimeXMLParser(XMLParser):
-    '''XML парсер запроса getRaspTime'''
-    def __init__(self):
-        super(RaspTimeXMLParser, self).__init__()
-        self.rasp_time = tree()
-    
-    def next(self, tag, attrs):
-        if tag == 'row':
-            direction = ord(attrs['rl_racetype'][0]) - ord('A')
-            st_id = int(attrs['st_id'])
-            try:
-                rt_time = int(attrs['rt_time'])
-            except ValueError:
-                logger.info(u'В таблице tbrasptime неверные данные rt_time="%s" при srv_id="%s" rv_id="%s"' % (attrs['rt_time'], attrs['srv_id'], attrs['rv_id']))
-                return
-            rt_orderby = int(attrs['rt_orderby'])
-            gr_id = int(attrs['gr_id'])
-            rt_racenum = int(attrs['rt_racenum'])
-            self.rasp_time[direction][gr_id][rt_racenum][rt_orderby] = {'st_id': st_id, 'time': rt_time }
-
-class RaspTimeCSVParser(CSVParser):
-    '''CSV парсер запроса getRaspTime'''
-    def __init__(self):
-        super(RaspTimeCSVParser, self).__init__()
-        self.rasp_time = tree()
-    
-    def next(self, row):
-        direction = ord(row[6][0]) - ord('A')
-        st_id = int(row[7])
-        try:
-            rt_time = int(row[8])
-        except ValueError:
-            logger.info(u'В таблице tbrasptime неверные данные rt_time="%s" при srv_id="%s" rv_id="%s"' % (row[8], row[0], row[1]))
-            return
-        rt_orderby = int(row[3])
-        gr_id = int(row[2])
-        rt_racenum = int(row[10])
-        self.rasp_time[direction][gr_id][rt_racenum][rt_orderby] = {'st_id': st_id, 'time': rt_time }
-
-class CheckSumXMLParser(XMLParser):
-    '''XML парсер запроса getChecksum'''
-    def __init__(self):
-        super(CheckSumXMLParser, self).__init__()
-        self.checksum = {}
-    
-    def next(self, tag, attrs):
-        if tag == 'row':
-            checksum = int(attrs['cs_checksum'])
-            self.checksum[attrs['cs_tablename']] = checksum
-
-class CheckSumCSVParser(CSVParser):
-    '''CSV парсер запроса getChecksum'''
-    def __init__(self):
-        super(CheckSumCSVParser, self).__init__()
-        self.checksum = {}
-    
-    def next(self, row):
-        checksum = int(row[1])
-        self.checksum[row[0]] = checksum
-
-class StopsXMLParser(XMLParser):
-    '''XML парсер запроса getStops'''
-    def __init__(self):
-        super(StopsXMLParser, self).__init__()
-        self.stations = {}
-    
-    def next(self, tag, attrs):
-        if tag == 'row':
-            st_id = int(attrs['st_id'])
-            lat = float(attrs['st_lat'])
-            lng = float(attrs['st_long'])
-            self.stations[st_id] = {'name': attrs['st_title'], 'location': {'lat': lat, 'long': lng}, 'tags': set() }
-
-class StopsCSVParser(CSVParser):
-    '''CSV парсер запроса getStops'''
-    def __init__(self):
-        super(StopsCSVParser, self).__init__()
-        self.stations = {}
-    
-    def next(self, row):
-        st_id = int(row[0])
-        lat = float(row[5])
-        lng = float(row[6])
-        self.stations[st_id] = {'name': row[3], 'location': {'lat': lat, 'long': lng}, 'tags': set() }
-
-def check_table(name_table):
-    if args.format == 'xml':
-        handler = CheckSumXMLParser()
-        request = '/getChecksum.php?cs_tablename=%s' % name_table
-    else:
-        handler = CheckSumCSVParser()
-        request =  '/getChecksum.php?cs_tablename=%s&fmt=csv' % name_table
-    http_request(request, handler)
-    if name_table in handler.checksum:
-        checksum_new = handler.checksum[name_table]
-        key = 'checksum:tn:%s:%s' % (args.url[1:], name_table)
-        checksum_old = redis_client.get(key)
-        if checksum_old:
-            if checksum_new != int(checksum_old):
-                logger.info(u'Контрольная сумма таблицы %s не совпадает %d <> %s, требуется полная перегрузка данных' % (name_table, checksum_new, checksum_old))
-                return (checksum_new, True)
-            else:
-                return (checksum_new, False)
-        else:
-            logger.info(u'Контрольная сумма таблицы %s, отсутствует в Redis, требуется полная перегрузка данных' % name_table)
-            return (checksum_new, True)
-    else:
-        logger.info(u'В таблице tbchecksum отсуствует контрольная сумма таблицы %s' % name_table)
-        return (None, True)
-
-def get_local_ids(index, doc_type):
-    ids = set()
-    prefix = '%d:' % group_code
-    query = {'query': {'prefix': { '_id': prefix }}}
-    try:
-        for hit in scan(es_client, query, '10m', index=index, doc_type=doc_type,  fields=''):
-            ids.add(hit['_id'])
-    except:
-        pass
-    return ids
-
-file_lock = threading.Lock()
-
-def save_json_to_file(file_descriptor, meta, body=None):
-    file_lock.acquire()
-    try:
-        file_descriptor.write(u'%s\n' % json.dumps(meta, ensure_ascii=False))
-        if body:
-            file_descriptor.write(u'%s\n' % json.dumps(body, ensure_ascii=False))    
-    finally:
-        file_lock.release()
-
-def delete_old_files(mask, days_delta):
-    '''Удаление json файлов, которые старее days_delta дней'''
-    current_time_date = datetime.date.fromtimestamp(current_time)
-    delta = datetime.timedelta(days=days_delta)
-    for name_file in glob.glob(mask):
-        date_file = time.mktime(time.strptime(os.path.splitext(os.path.basename(name_file))[0].split('_')[1], "%Y-%m-%dT%H:%M:%S"))
-        if current_time_date - datetime.date.fromtimestamp(date_file) > delta:
-            logger.info(u'Удален старый файл %s' % os.path.basename(name_file))
-            os.remove(name_file)
-
 class SynchroStations(object):
     '''Синхронизация остановок транспорта'''
     def __init__(self):
-        self.report = tree()
+        self.report = util.tree()
         self.lock = threading.Lock()
     
     def synchro(self):
-        self.checksum, self.change = check_table('tbstops')
+        self.checksum, self.change = util.check_table('tbstops', args, redis_client, logger=logger)
         if not args.only:
-            self.ids = get_local_ids(name_index_es[args.url[1:]], 'station')
+            self.ids = util.get_local_ids(es_client, const.name_index_es[args.url[1:]], 'station', group_code)
         else:
             self.ids = set()
             self.change = True
@@ -604,12 +136,12 @@ class SynchroStations(object):
     
     def process_stops(self):
         if args.format == 'xml':
-            handler = StopsXMLParser()
+            handler = parsers.StopsXMLParser()
             request = '/getStops.php'
         else:
-            handler = StopsCSVParser()
+            handler = parsers.StopsCSVParser()
             request = '/getStops.php?fmt=csv'
-        http_request(request, handler)
+        util.http_request(request, handler, args, logger=logger)
         self.stations = handler.stations
         logger.debug(u'Получен список остановок')
     
@@ -634,19 +166,19 @@ class SynchroStations(object):
                 continue
             complex_id = station_tn['id']
             if complex_id in self.ids:
-                station_es = es_client.get(index=name_index_es[args.url[1:]], doc_type = 'station', id = complex_id)
+                station_es = es_client.get(index=const.name_index_es[args.url[1:]], doc_type = 'station', id = complex_id)
                 if station_es['_source'] != station_tn:
-                    meta = {'index': {'_index': name_index_es[args.url[1:]], '_type': 'station', '_id': complex_id}}
-                    save_json_to_file(file_descriptor, meta, station_tn)
+                    meta = {'index': {'_index': const.name_index_es[args.url[1:]], '_type': 'station', '_id': complex_id}}
+                    util.save_json_to_file(file_descriptor, meta, station_tn)
                     self.report_stations('update', st_id)
                 self.ids.discard(complex_id)
             else:
-                meta = {'index': {'_index': name_index_es[args.url[1:]], '_type': 'station', '_id': complex_id}}
-                save_json_to_file(file_descriptor, meta, station_tn)
+                meta = {'index': {'_index': const.name_index_es[args.url[1:]], '_type': 'station', '_id': complex_id}}
+                util.save_json_to_file(file_descriptor, meta, station_tn)
                 self.report_stations('insert', st_id)
         for complex_id in self.ids:
-            meta = {'delete': {'_index': name_index_es[args.url[1:]], '_type': 'station', '_id': complex_id}}
-            save_json_to_file(file_descriptor, meta)
+            meta = {'delete': {'_index': const.name_index_es[args.url[1:]], '_type': 'station', '_id': complex_id}}
+            util.save_json_to_file(file_descriptor, meta)
             st_id = int(complex_id.split(':')[-1])
             self.report_stations('delete', st_id)
 
@@ -665,7 +197,7 @@ class SynchroStations(object):
             ],
             'tags': tags,
             'name': self.stations[st_id]['name'],
-            'region': name_region[args.url[1:]]
+            'region': const.name_region[args.url[1:]]
         }
         return station
     
@@ -707,9 +239,9 @@ class SynchroRoutes(object):
     def __init__(self):
         self.stations = SynchroStations()
         self.stations.synchro()
-        self.marsh_variants = tree()
-        self.rasp_variants = tree()
-        self.report = tree()
+        self.marsh_variants = util.tree()
+        self.rasp_variants = util.tree()
+        self.report = util.tree()
         self.report_lock = threading.Lock()
         self.route_ids_lock = threading.Lock()
     
@@ -732,9 +264,9 @@ class SynchroRoutes(object):
             
 
     def synchro(self, file_descriptor):
-        self.checksum, self.change = check_table('tbmarshes')
+        self.checksum, self.change = util.check_table('tbmarshes', args, redis_client, logger=logger)
         if not args.only:
-            self._route_ids = get_local_ids(name_index_es[args.url[1:]], 'route')
+            self._route_ids = util.get_local_ids(es_client, const.name_index_es[args.url[1:]], 'route', group_code)
         else:
             self._route_ids = set()
             self.change = True
@@ -755,8 +287,8 @@ class SynchroRoutes(object):
         threadpool.finish()
         self.stations.form_file(file_descriptor)
         for complex_id in self._route_ids:
-            meta = {'delete': {'_index': name_index_es[args.url[1:]], '_type': 'route', '_id': complex_id}}
-            save_json_to_file(file_descriptor, meta)
+            meta = {'delete': {'_index': const.name_index_es[args.url[1:]], '_type': 'route', '_id': complex_id}}
+            util.save_json_to_file(file_descriptor, meta)
             complex_id_split = complex_id.split(':')
             mr_id = int(complex_id_split[1])
             direction = int(complex_id_split[2])
@@ -766,23 +298,23 @@ class SynchroRoutes(object):
 
     def process_marshes(self):
         if args.format == 'xml':
-            handler = MarshesXMLParser()
+            handler = parsers.MarshesXMLParser(set([1,2,3]), args.correct_transport_type, logger=logger)
             request = '/getMarshes.php'
         else:
-            handler = MarshesCSVParser()
+            handler = parsers.MarshesCSVParser(set([1,2,3]), args.correct_transport_type, logger=logger)
             request = '/getMarshes.php?fmt=csv'
-        http_request(request, handler)
+        util.http_request(request, handler, args, logger=logger)
         self.marshes = handler.marshes
         logger.debug(u'Получен список маршрутов')
 
     def process_marshvariants(self):
         if args.format == 'xml':
-            handler = MarshVariantsXMLParser()
+            handler = parsers.MarshVariantsXMLParser(current_time, redis_client, args.url[1:])
             request = '/getMarshVariants.php'
         else:
-            handler = MarshVariantsCSVParser()
+            handler = parsers.MarshVariantsCSVParser(current_time, redis_client, args.url[1:])
             request = '/getMarshVariants.php?fmt=csv'
-        http_request(request, handler)
+        util.http_request(request, handler, args, logger=logger)
         for mr_id in handler.marsh_variants:
             mv_startdate = sorted(handler.marsh_variants[mr_id].keys())[-1]
             mv_id = sorted(handler.marsh_variants[mr_id][mv_startdate].keys())[-1]
@@ -791,12 +323,12 @@ class SynchroRoutes(object):
 
     def process_raspvariants(self):
         if args.format == 'xml':
-            handler = RaspVariantsXMLParser()
+            handler = parsers.RaspVariantsXMLParser(current_time, redis_client, args.url[1:])
             request = '/getRaspVariants.php'
         else:
-            handler = RaspVariantsCSVParser()
+            handler = parsers.RaspVariantsCSVParser(current_time, redis_client, args.url[1:])
             request = '/getRaspVariants.php?fmt=csv'
-        http_request(request, handler)
+        util.http_request(request, handler, logger=logger)
         for mr_id in handler.rasp_variants:
             for day_week in handler.rasp_variants[mr_id]:
                 rv_startdate = sorted(handler.rasp_variants[mr_id][day_week].keys())[-1]
@@ -820,14 +352,14 @@ class SynchroRoutes(object):
     
     def local_process_marsh_variants(self, mr_id, file_descriptor):
         prefix = '%d:%d:' % (group_code, mr_id)
-        for hit in scan(es_client, {'query': {'prefix': { '_id': prefix }}}, '10m', index=name_index_es[args.url[1:]], doc_type='route'):
+        for hit in scan(es_client, {'query': {'prefix': { '_id': prefix }}}, '10m', index=const.name_index_es[args.url[1:]], doc_type='route'):
             complex_id = hit['_id']
             direction = int(complex_id.split(':')[-1])
             route_es = hit['_source']
             route = self.get_route_from_local(mr_id, direction, route_es)
             if route != route_es:
-                meta = {'index': {'_index': name_index_es[args.url[1:]], '_type': 'route', '_id': complex_id}}
-                save_json_to_file(file_descriptor, meta, route)
+                meta = {'index': {'_index': const.name_index_es[args.url[1:]], '_type': 'route', '_id': complex_id}}
+                util.save_json_to_file(file_descriptor, meta, route)
                 report_description = u'%8s %-80s %s/%d/%d' % (route['name'], route['direction'], complex_id.split(':')[0], mr_id, direction)
                 self.report_changes('update', mr_id, direction, report_description)
             for item_station in route['stations']:
@@ -845,7 +377,7 @@ class SynchroRoutes(object):
             'id': doc_id,
             'name': name,
             'direction': name_direction,
-            'region': name_region[args.url[1:]],
+            'region': const.name_region[args.url[1:]],
             'transport': self.marshes[mr_id]['transport'],
             'stations': route_es['stations'],
             'geometry': route_es['geometry'],
@@ -950,7 +482,7 @@ class SynchroRoutes(object):
         okato = complex_id_split[0]
         mr_id = int(complex_id_split[1])
         direction = int(complex_id_split[2])
-        route_es = es_client.get(index = name_index_es[args.url[1:]], doc_type = 'route', id = complex_id)
+        route_es = es_client.get(index = const.name_index_es[args.url[1:]], doc_type = 'route', id = complex_id)
         name_direction = route_es['_source']['direction']
         if 'time_ext' in route_es:
             name_direction = name_direction + ' (' + route_es['time_ext'] + u')'
@@ -1020,10 +552,10 @@ class RouteExtra(threading.Thread):
         self.project = partial(
             pyproj.transform,
             pyproj.Proj(init='EPSG:4326'),
-            pyproj.Proj(init=name_proj[args.url[1:]]))
+            pyproj.Proj(init=const.name_proj[args.url[1:]]))
         self.race_card = {}
         self.race_coord = {}
-        self.rasp_time = tree()
+        self.rasp_time = util.tree()
 
     def run(self):
         try:
@@ -1039,36 +571,36 @@ class RouteExtra(threading.Thread):
     
     def process_racecard(self, mv_id):
         if args.format == 'xml':
-            handler = RaceCardXMLParser()
+            handler = parsers.RaceCardXMLParser()
             request = '/getRaceCard.php?mv_id=%d' % mv_id
         else:
-            handler = RaceCardCSVParser()
+            handler = parsers.RaceCardCSVParser()
             request = '/getRaceCard.php?mv_id=%d&fmt=csv' % mv_id
-        http_request(request, handler)
+        util.http_request(request, handler, args, logger=logger)
         for direction in handler.race_card:
             self.race_card[direction] = [handler.race_card[direction][k] for k in sorted(handler.race_card[direction].keys())]
         logger.debug(u'Скачена последовательность остановок для маршрута mr_id=%d, mv_id=%d, %s %s' % (self.mr_id, mv_id, self.marshes.marshes[self.mr_id]['name'], self.marshes.marshes[self.mr_id]['description']))
     
     def process_racecoord(self, mv_id):
         if args.format == 'xml':
-            handler = RaceCoordXMLParser()
+            handler = parsers.RaceCoordXMLParser()
             request = '/getRaceCoord.php?mv_id=%d' % mv_id
         else:
-            handler = RaceCoordCSVParser()
+            handler = parsers.RaceCoordCSVParser()
             request = '/getRaceCoord.php?mv_id=%d&fmt=csv' % mv_id
-        http_request(request, handler)
+        util.http_request(request, handler, args, logger=logger)
         for direction in handler.race_coord:
             self.race_coord[direction] = [handler.race_coord[direction][k] for k in sorted(handler.race_coord[direction].keys())]
         logger.debug(u'Скачена геометрия для маршрута mr_id=%d, mv_id=%d, %s %s' % (self.mr_id, mv_id, self.marshes.marshes[self.mr_id]['name'], self.marshes.marshes[self.mr_id]['description']))
     
     def process_rasptime(self, srv_id, rv_id):
         if args.format == 'xml':
-            handler = RaspTimeXMLParser()
+            handler = parsers.RaspTimeXMLParser(logger=logger)
             request = '/getRaspTime.php?srv_id=%d&rv_id=%d' % (srv_id, rv_id)
         else:
-            handler = RaspTimeCSVParser()
+            handler = parsers.RaspTimeCSVParser(logger=logger)
             request = '/getRaspTime.php?srv_id=%d&rv_id=%d&fmt=csv' % (srv_id, rv_id)
-        http_request(request, handler)
+        util.http_request(request, handler, args, logger=logger)
         for direction in self.race_card:
             self.rasp_time[(srv_id, rv_id)][direction] = []
             for item in self.race_card[direction]:
@@ -1134,15 +666,15 @@ class RouteExtra(threading.Thread):
         route = self.create_route(direction)
         complex_id = route['id']
         if self.marshes.present_route_id(complex_id):
-            route_es = self.es_client.get(index = name_index_es[args.url[1:]], doc_type = 'route', id = complex_id)
+            route_es = self.es_client.get(index = const.name_index_es[args.url[1:]], doc_type = 'route', id = complex_id)
             if route_es['_source'] != route:
-                meta = {'index': {'_index': name_index_es[args.url[1:]], '_type': 'route', '_id': complex_id}}
-                save_json_to_file(self.file_descriptor, meta, route)
+                meta = {'index': {'_index': const.name_index_es[args.url[1:]], '_type': 'route', '_id': complex_id}}
+                util.save_json_to_file(self.file_descriptor, meta, route)
                 self.marshes.report_changes('update', self.mr_id, direction, self.report_description_route(direction))
             self.marshes.del_route_id(complex_id)
         else:
-            meta = {'index': {'_index': name_index_es[args.url[1:]], '_type': 'route', '_id': complex_id}}
-            save_json_to_file(self.file_descriptor, meta, route)
+            meta = {'index': {'_index': const.name_index_es[args.url[1:]], '_type': 'route', '_id': complex_id}}
+            util.save_json_to_file(self.file_descriptor, meta, route)
             self.marshes.report_changes('insert', self.mr_id, direction, self.report_description_route(direction))
 
     def create_route(self, direction):
@@ -1163,7 +695,7 @@ class RouteExtra(threading.Thread):
             'id': doc_id,
             'name': name,
             'direction': name_direction,
-            'region': name_region[args.url[1:]],
+            'region': const.name_region[args.url[1:]],
             'transport': self.marshes.marshes[self.mr_id]['transport'],
             'stations': stations,
             'geometry': geometry,
@@ -1225,7 +757,7 @@ class RouteExtra(threading.Thread):
                 running_one = 1
                 for i in xrange(7):
                     if mask & running_one:
-                        weekday.append(week_day_en[i])
+                        weekday.append(const.week_day_en[i])
                     running_one = running_one << 1
                 time_str= u''
                 for time_int in self.rasp_time[(srv_id, rv_id)][direction][index_st]['time']:
@@ -1268,7 +800,7 @@ class RouteExtra(threading.Thread):
         return result
 
     def validate_rasptime(self, direction):
-        if self.rasp_time == tree():
+        if self.rasp_time == util.tree():
             logger.info(u'На маршруте %s %s mr_id=%d полностью отсутствует расписание' % (self.marshes.marshes[self.mr_id]['name'], self.marshes.marshes[self.mr_id]['description'], self.mr_id))
             if args.create_schedule:
                 if self.check_enable_create_schedule(None, -1, -1):
@@ -1321,7 +853,7 @@ class RouteExtra(threading.Thread):
             list_week_day = u''
             for i in xrange(7):
                 if (running_one & mask) == 0:
-                    list_week_day = list_week_day + week_day[i] + u', '
+                    list_week_day = list_week_day + const.week_day[i] + u', '
                 running_one = running_one << 1
             list_week_day = list_week_day[:-2]
             logger.info(u'На маршруте %s %s mr_id=%d, направление %s нет расписания на следующие дни недели: %s' % (self.marshes.marshes[self.mr_id]['name'], self.marshes.marshes[self.mr_id]['description'], self.mr_id, chr(direction + ord('A')), list_week_day))
@@ -1416,7 +948,7 @@ class RouteExtra(threading.Thread):
 
 try:
     current_time = time.time()
-    group_code = group_codes[args.url[1:]]
+    group_code = const.group_codes[args.url[1:]]
     redis_client = redis.StrictRedis( host = args.host_redis, port = args.port_redis, db = args.db_redis )
     es_client = Elasticsearch([{'host': args.host_es, 'port': args.port_es}])
     socket.setdefaulttimeout(args.timeout)
@@ -1449,6 +981,7 @@ try:
         if change_checksum:
             synchro_routes.set_checksum()
         logger.subinfo(u'Изменений не обнаружено, выполнено за %.1f сек.' % (time.time() - current_time), extra={'marker': 'nagios'})
-    delete_old_files('elasticsearch/%s_*.json' % args.url[1:], 7)
+    util.delete_old_files('elasticsearch/%s_*.json' % args.url[1:], 7, current_time, logger=logger)
 except Exception, e:
     logger.exception(e, extra={'marker': 'nagios'})
+
