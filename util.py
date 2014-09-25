@@ -93,7 +93,7 @@ def delete_old_files(mask, days_delta, current_time, logger=None):
             if logger:
                 logger.info(u'Удален старый файл %s' % os.path.basename(name_file))
 
-def check_table(name_table, args, redis_client, logger=None):
+def check_table(name_table, args, redis_client=None, logger=None):
     if args.format == 'xml':
         handler = parsers.CheckSumXMLParser()
         request = '/getChecksum.php?cs_tablename=%s' % name_table
@@ -103,18 +103,23 @@ def check_table(name_table, args, redis_client, logger=None):
     http_request(request, handler, args, logger=logger)
     if name_table in handler.checksum:
         checksum_new = handler.checksum[name_table]
-        key = 'checksum:tn:%s:%s' % (args.url[1:], name_table)
-        checksum_old = redis_client.get(key)
-        if checksum_old:
-            if checksum_new != int(checksum_old):
-                if logger:
-                    logger.info(u'Контрольная сумма таблицы %s не совпадает %d <> %s, требуется полная перегрузка данных' % (name_table, checksum_new, checksum_old))
-                return (checksum_new, True)
+        if redis_client:
+            key = 'checksum:tn:%s:%s' % (args.url[1:], name_table)
+            checksum_old = redis_client.get(key)
+            if checksum_old:
+                if checksum_new != int(checksum_old):
+                    if logger:
+                        logger.info(u'Контрольная сумма таблицы %s не совпадает %d <> %s, требуется полная перегрузка данных' % (name_table, checksum_new, checksum_old))
+                    return (checksum_new, True)
+                else:
+                    return (checksum_new, False)
             else:
-                return (checksum_new, False)
+                if logger:
+                    logger.info(u'Контрольная сумма таблицы %s, отсутствует в Redis, требуется полная перегрузка данных' % name_table)
+                return (checksum_new, True)
         else:
             if logger:
-                logger.info(u'Контрольная сумма таблицы %s, отсутствует в Redis, требуется полная перегрузка данных' % name_table)
+                logger.info(u'Контрольная сумма таблицы %s, не проверялась в Redis' % name_table)
             return (checksum_new, True)
     else:
         if logger:

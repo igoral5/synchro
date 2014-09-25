@@ -119,7 +119,6 @@ class SynchroRoutes:
     '''Синхронизация маршрутов'''
     def __init__(self, stations, json_metro):
         self.stations = stations
-        self.marsh_variants = util.tree()
         self.time = util.tree()
         self.json = json_metro
         self.marshes_json = {}
@@ -152,16 +151,12 @@ class SynchroRoutes:
     def process_marshvariants(self):
         handler = parsers.MarshVariantsXMLParser(current_time)
         util.http_request('/getMarshVariants.php', handler, args, logger=logger)
-        for mr_id in handler.marsh_variants:
-            mv_startdate = sorted(handler.marsh_variants[mr_id].keys())[-1]
-            mv_id = sorted(handler.marsh_variants[mr_id][mv_startdate].keys())[-1]
-            self.marsh_variants[mr_id][mv_id] = handler.marsh_variants[mr_id][mv_startdate][mv_id]
+        self.marsh_variants = handler.marsh_variants
     
     def process_racecard(self, mr_id, mv_id):
         handler = parsers.RaceCardXMLParser()
         util.http_request('/getRaceCard.php?mv_id=%d' % mv_id, handler, args, logger=logger)
-        for direction in handler.race_card:
-            self.route['race_card'][direction] = [handler.race_card[direction][k] for k in sorted(handler.race_card[direction].keys())]
+        self.route['race_card'] = handler.race_card
         for item in self.json['add_racecard']:
             if mr_id == item['mr_id']:
                 self.route['race_card'][item['direction']].insert(item['index'], item['item'])
@@ -172,8 +167,7 @@ class SynchroRoutes:
     def process_racecoord(self, mv_id):
         handler = parsers.RaceCoordXMLParser()
         util.http_request('/getRaceCoord.php?mv_id=%d' % mv_id, handler, args, logger=logger)
-        for direction in handler.race_coord:
-            self.route['race_coord'][direction] = [handler.race_coord[direction][k] for k in sorted(handler.race_coord[direction].keys())]
+        self.route['race_coord'] = handler.race_coord
     
     def create_route(self, mr_id, direction):
         _id = '%d:%d:%d' % (group_code, mr_id, direction)
@@ -189,7 +183,7 @@ class SynchroRoutes:
                 station_time = self.time[mr_id][st_id][next_st_id]
             else:
                 station_time = 0
-            stations.append({ 'id': id_station, 'distance': item['distance'] * 1000, 'time': station_time })
+            stations.append({ 'id': id_station, 'distance': item['distance'] * 1000, 'next': station_time })
         route = {
             'id': _id,
             'name': name,

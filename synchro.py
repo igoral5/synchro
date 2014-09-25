@@ -103,22 +103,6 @@ if args.json_log:
     logger.addHandler(jh)
 logger.setLevel(logging.DEBUG)
 
-
-def find_best_place(refer, index_st, st_id, rt_time):
-    if index_st >= 0 and index_st < len(refer) and refer[index_st]['st_id'] == st_id:
-        refer[index_st]['time'].append(rt_time)
-        return
-    else:
-        for i in xrange(1,4):
-            index_new = index_st + i
-            if index_new >= 0 and index_new < len(refer) and refer[index_new]['st_id'] == st_id:
-                refer[index_new]['time'].append(rt_time)
-                return
-            index_new = index_st - i
-            if index_new >= 0 and index_new < len(refer) and refer[index_new]['st_id'] == st_id:
-                refer[index_new]['time'].append(rt_time)
-                return
-
 class SynchroStations(object):
     '''Синхронизация остановок транспорта'''
     def __init__(self):
@@ -239,8 +223,6 @@ class SynchroRoutes(object):
     def __init__(self):
         self.stations = SynchroStations()
         self.stations.synchro()
-        self.marsh_variants = util.tree()
-        self.rasp_variants = util.tree()
         self.report = util.tree()
         self.report_lock = threading.Lock()
         self.route_ids_lock = threading.Lock()
@@ -315,10 +297,7 @@ class SynchroRoutes(object):
             handler = parsers.MarshVariantsCSVParser(current_time, redis_client, args.url[1:])
             request = '/getMarshVariants.php?fmt=csv'
         util.http_request(request, handler, args, logger=logger)
-        for mr_id in handler.marsh_variants:
-            mv_startdate = sorted(handler.marsh_variants[mr_id].keys())[-1]
-            mv_id = sorted(handler.marsh_variants[mr_id][mv_startdate].keys())[-1]
-            self.marsh_variants[mr_id][mv_id] = handler.marsh_variants[mr_id][mv_startdate][mv_id]
+        self.marsh_variants = handler.marsh_variants
         logger.debug(u'Получен список вариантов маршрутов')
 
     def process_raspvariants(self):
@@ -329,11 +308,7 @@ class SynchroRoutes(object):
             handler = parsers.RaspVariantsCSVParser(current_time, redis_client, args.url[1:])
             request = '/getRaspVariants.php?fmt=csv'
         util.http_request(request, handler, args, logger=logger)
-        for mr_id in handler.rasp_variants:
-            for day_week in handler.rasp_variants[mr_id]:
-                rv_startdate = sorted(handler.rasp_variants[mr_id][day_week].keys())[-1]
-                (srv_id, rv_id) = sorted(handler.rasp_variants[mr_id][day_week][rv_startdate].keys())[-1]
-                self.rasp_variants[mr_id][(srv_id, rv_id)] = handler.rasp_variants[mr_id][day_week][rv_startdate][(srv_id, rv_id)]
+        self.rasp_variants = handler.rasp_variants
         logger.debug(u'Получен список вариантов расписаний')
     
     def change_marsh_variants(self, mr_id):
@@ -553,9 +528,6 @@ class RouteExtra(threading.Thread):
             pyproj.transform,
             pyproj.Proj(init='EPSG:4326'),
             pyproj.Proj(init=const.name_proj[args.url[1:]]))
-        self.race_card = {}
-        self.race_coord = {}
-        self.rasp_time = util.tree()
 
     def run(self):
         try:
@@ -577,8 +549,7 @@ class RouteExtra(threading.Thread):
             handler = parsers.RaceCardCSVParser()
             request = '/getRaceCard.php?mv_id=%d&fmt=csv' % mv_id
         util.http_request(request, handler, args, logger=logger)
-        for direction in handler.race_card:
-            self.race_card[direction] = [handler.race_card[direction][k] for k in sorted(handler.race_card[direction].keys())]
+        self.race_card = handler.race_card
         logger.debug(u'Скачена последовательность остановок для маршрута mr_id=%d, mv_id=%d, %s %s' % (self.mr_id, mv_id, self.marshes.marshes[self.mr_id]['name'], self.marshes.marshes[self.mr_id]['description']))
     
     def process_racecoord(self, mv_id):
@@ -589,35 +560,24 @@ class RouteExtra(threading.Thread):
             handler = parsers.RaceCoordCSVParser()
             request = '/getRaceCoord.php?mv_id=%d&fmt=csv' % mv_id
         util.http_request(request, handler, args, logger=logger)
-        for direction in handler.race_coord:
-            self.race_coord[direction] = [handler.race_coord[direction][k] for k in sorted(handler.race_coord[direction].keys())]
+        self.race_coord = handler.race_coord
         logger.debug(u'Скачена геометрия для маршрута mr_id=%d, mv_id=%d, %s %s' % (self.mr_id, mv_id, self.marshes.marshes[self.mr_id]['name'], self.marshes.marshes[self.mr_id]['description']))
     
     def process_rasptime(self, srv_id, rv_id):
         if args.format == 'xml':
-            handler = parsers.RaspTimeXMLParser(logger=logger)
+            handler = parsers.RaspTimeXMLParser(srv_id, rv_id, self.race_card, logger=logger)
             request = '/getRaspTime.php?srv_id=%d&rv_id=%d' % (srv_id, rv_id)
         else:
-            handler = parsers.RaspTimeCSVParser(logger=logger)
+            handler = parsers.RaspTimeCSVParser(srv_id, rv_id, self.race_card, logger=logger)
             request = '/getRaspTime.php?srv_id=%d&rv_id=%d&fmt=csv' % (srv_id, rv_id)
         util.http_request(request, handler, args, logger=logger)
-        for direction in self.race_card:
-            self.rasp_time[(srv_id, rv_id)][direction] = []
-            for item in self.race_card[direction]:
-                self.rasp_time[(srv_id, rv_id)][direction].append({'st_id': item['st_id'], 'time': []})
-        for direction in handler.rasp_time:
-            for gr_id in sorted(handler.rasp_time[direction].keys()):
-                for rt_racenum in sorted(handler.rasp_time[direction][gr_id].keys()):
-                    for index_st, rt_orderby in enumerate(sorted(handler.rasp_time[direction][gr_id][rt_racenum].keys())):
-                        rt_time = handler.rasp_time[direction][gr_id][rt_racenum][rt_orderby]['time']
-                        st_id = handler.rasp_time[direction][gr_id][rt_racenum][rt_orderby]['st_id']
-                        find_best_place(self.rasp_time[(srv_id, rv_id)][direction], index_st, st_id, rt_time)
-        for direction in self.rasp_time[(srv_id, rv_id)]:
-            for item in self.rasp_time[(srv_id, rv_id)][direction]:
-                item['time'] = sorted(item['time'])
+        self.rasp_time = handler.rasp_time
         logger.debug(u'Скачены расписания для маршрута mr_id=%d, srv_id=%d, rv_id=%d, %s %s' % (self.mr_id, srv_id, rv_id, self.marshes.marshes[self.mr_id]['name'], self.marshes.marshes[self.mr_id]['description']))
     
     def form_file(self):
+        if not hasattr(self, 'race_card'):
+            logger.info(u'На маршруте %s %s mr_id=%d, нет направлений и последовательности остановок', self.marshes.marshes[self.mr_id]['name'], self.marshes.marshes[self.mr_id]['description'], self.mr_id)
+            return
         logger.debug(u'Обработка маршрута %s %s mr_id=%d' % (self.marshes.marshes[self.mr_id]['name'], self.marshes.marshes[self.mr_id]['description'], self.mr_id))
         for direction in self.race_card:
             self.marshes.report_routes(self.mr_id, direction)
@@ -800,7 +760,7 @@ class RouteExtra(threading.Thread):
         return result
 
     def validate_rasptime(self, direction):
-        if self.rasp_time == util.tree():
+        if not hasattr(self, 'rasp_time'):
             logger.info(u'На маршруте %s %s mr_id=%d полностью отсутствует расписание' % (self.marshes.marshes[self.mr_id]['name'], self.marshes.marshes[self.mr_id]['description'], self.mr_id))
             if args.create_schedule:
                 if self.check_enable_create_schedule(None, -1, -1):
@@ -897,6 +857,8 @@ class RouteExtra(threading.Thread):
             self.create_schedule_im(direction, srv_id, rv_id, value)
 
     def create_schedule_im(self, direction, srv_id, rv_id, value):
+        if not hasattr(self, 'rasp_time'):
+            self.rasp_time = util.tree()
         self.rasp_time[(srv_id, rv_id)][direction] = []
         for item in self.race_card[direction]:
             st_id = item['st_id']

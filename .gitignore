@@ -1,12 +1,8 @@
-/synchro.pyc
-/unicodecsv.pyc
 /elasticsearch/
-/telemetry.log
+*.log*
 /.settings/
 /.project
 /.pydevproject
-/synchro-moscow.log
-/metro.json
-/const.pyc
-/parsers.pyc
-/util.pyc
+*.json
+*.pyc
+
