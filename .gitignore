@@ -3,6 +3,7 @@
 /.settings/
 /.project
 /.pydevproject
-*.json
+/aeroexpress.json
+/metro.json
 *.pyc
 
