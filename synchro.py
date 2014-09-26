@@ -564,15 +564,16 @@ class RouteExtra(threading.Thread):
         logger.debug(u'Скачена геометрия для маршрута mr_id=%d, mv_id=%d, %s %s' % (self.mr_id, mv_id, self.marshes.marshes[self.mr_id]['name'], self.marshes.marshes[self.mr_id]['description']))
     
     def process_rasptime(self, srv_id, rv_id):
-        if args.format == 'xml':
-            handler = parsers.RaspTimeXMLParser(srv_id, rv_id, self.race_card, logger=logger)
-            request = '/getRaspTime.php?srv_id=%d&rv_id=%d' % (srv_id, rv_id)
-        else:
-            handler = parsers.RaspTimeCSVParser(srv_id, rv_id, self.race_card, logger=logger)
-            request = '/getRaspTime.php?srv_id=%d&rv_id=%d&fmt=csv' % (srv_id, rv_id)
-        util.http_request(request, handler, args, logger=logger)
-        self.rasp_time = handler.rasp_time
-        logger.debug(u'Скачены расписания для маршрута mr_id=%d, srv_id=%d, rv_id=%d, %s %s' % (self.mr_id, srv_id, rv_id, self.marshes.marshes[self.mr_id]['name'], self.marshes.marshes[self.mr_id]['description']))
+        if hasattr(self, 'race_card'):
+            if args.format == 'xml':
+                handler = parsers.RaspTimeXMLParser(srv_id, rv_id, self.race_card, logger=logger)
+                request = '/getRaspTime.php?srv_id=%d&rv_id=%d' % (srv_id, rv_id)
+            else:
+                handler = parsers.RaspTimeCSVParser(srv_id, rv_id, self.race_card, logger=logger)
+                request = '/getRaspTime.php?srv_id=%d&rv_id=%d&fmt=csv' % (srv_id, rv_id)
+            util.http_request(request, handler, args, logger=logger)
+            self.rasp_time = handler.rasp_time
+            logger.debug(u'Скачены расписания для маршрута mr_id=%d, srv_id=%d, rv_id=%d, %s %s' % (self.mr_id, srv_id, rv_id, self.marshes.marshes[self.mr_id]['name'], self.marshes.marshes[self.mr_id]['description']))
     
     def form_file(self):
         if not hasattr(self, 'race_card'):

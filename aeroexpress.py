@@ -159,6 +159,7 @@ class SynchroRoutes:
             'region': const.name_region[args.url[1:]],
             'transport': self.marshes[mr_id]['transport'],
             'stations': stations,
+            'geometry': self.create_geometry(mr_id, direction),
             'valid': True
         }
         return route
@@ -197,13 +198,12 @@ class SynchroRoutes:
         meta = {'index': {'_index': const.name_index_es[args.url[1:]], '_type': 'route', '_id': complex_id}}
         util.save_json_to_file(file_descriptor, meta, route)
 
-if not args.only_create:
-    es_client = Elasticsearch([{'host': args.host_es, 'port': args.port_es}])
-current_time = time.time()
 group_code = 8000
+current_time = time.time()
 name_file = 'aeroexpress.json'
 f = codecs.open(name_file, "w", encoding="utf-8")
 if not args.only_create:
+    es_client = Elasticsearch([{'host': args.host_es, 'port': args.port_es}])
     util.delete_old_doc(es_client, const.name_index_es[args.url[1:]], 'route', group_code, f)
     util.delete_old_doc(es_client, const.name_index_es[args.url[1:]], 'geometry', group_code, f)
     util.delete_old_doc(es_client, const.name_index_es[args.url[1:]], 'schedule', group_code, f)
