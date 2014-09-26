@@ -226,6 +226,10 @@ class SynchroRoutes(object):
         self.report = util.tree()
         self.report_lock = threading.Lock()
         self.route_ids_lock = threading.Lock()
+        self.project = partial(
+            pyproj.transform,
+            pyproj.Proj(init='EPSG:4326'),
+            pyproj.Proj(init=const.name_proj[args.url[1:]]))
     
     def del_route_id(self, doc_id):
         self.route_ids_lock.acquire()
@@ -524,10 +528,6 @@ class RouteExtra(threading.Thread):
         self.mr_id = mr_id
         self.file_descriptor = file_descriptor
         self.es_client = Elasticsearch([{'host': args.host_es, 'port': args.port_es}])
-        self.project = partial(
-            pyproj.transform,
-            pyproj.Proj(init='EPSG:4326'),
-            pyproj.Proj(init=const.name_proj[args.url[1:]]))
         self.rasp_time = util.tree()
 
     def run(self):
@@ -711,7 +711,7 @@ class RouteExtra(threading.Thread):
 
     def create_schedules(self, direction):
         schedules = []
-        for index_st, _ in enumerate(self.race_card[direction]):
+        for index_st in xrange(len(self.race_card[direction])):
             datas_json = []
             for (srv_id, rv_id) in self.rasp_time:
                 mask = self.marshes.rasp_variants[self.mr_id][(srv_id, rv_id)]['mask']
@@ -745,8 +745,7 @@ class RouteExtra(threading.Thread):
     def validate_geometry(self, direction):
         '''Осуществляет проверку геометрии маршрута. Остановки должны лежать на маршруте'''
         line = LineString([(item['coord']['long'], item['coord']['lat']) for item in self.race_coord[direction]])
-        line_proj = transform(self.project, line)
-        result = True
+        line_proj = transform(self.marshes.project, line)
         for station in self.race_card[direction]:
             st_id = station['st_id']
             stop = self.marshes.stations.get_station(st_id)
@@ -754,12 +753,12 @@ class RouteExtra(threading.Thread):
                 lat = stop['location']['lat']
                 lng = stop['location']['long']
                 point = Point(lng, lat)
-                point_proj = transform(self.project, point)
+                point_proj = transform(self.marshes.project, point)
                 distance = line_proj.distance(point_proj)
                 if distance > args.distance:
                     logger.info(u'На маршруте %s %s mr_id=%d, направление %s остановка %s st_id=%d не лежит на геометрии маршрута, расстояние до ближайшей точки маршрута %f метров' % (self.marshes.marshes[self.mr_id]['name'], self.marshes.marshes[self.mr_id]['description'], self.mr_id, chr(direction + ord('A')), self.marshes.stations.get_station(st_id)['name'], st_id, distance))
-                    result = False
-        return result
+                    return False
+        return True
 
     def validate_rasptime(self, direction):
         if not hasattr(self, 'rasp_time'):

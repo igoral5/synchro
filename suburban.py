@@ -17,6 +17,7 @@ import parsers
 import util
 import shapely.wkt
 import shapely.geometry
+import json
 
 
 if sys.stdout.encoding is None:
@@ -117,8 +118,12 @@ class Stations:
 
 class UrbanRoutes:
     '''Обработка маршрутов электричек'''
-    def __init__(self, stations):
+    def __init__(self, stations, f_express):
         self.stations = stations
+        j_express = json.load(f_express)
+        self.express = []
+        for item in j_express:
+            self.express.append(item['st_id'])
         self.es_geometry = {}
     
     def load(self):
@@ -161,20 +166,10 @@ class UrbanRoutes:
     
     def is_aeroexspress(self, mr_id):
         ''' Возвращает True, если это аэроэкспресс '''
-        if len(self.marshes[mr_id]['stations']) == 2:
-            if self.marshes[mr_id]['stations'][0]['id'] == 2000005 and self.marshes[mr_id]['stations'][-1]['id'] == 9600216: # Москва (Павелецкий вокзал) - аэропорт Домодедово
-                return True
-            if self.marshes[mr_id]['stations'][0]['id'] == 9600216 and self.marshes[mr_id]['stations'][-1]['id'] == 2000005: # аэропорт Домодедово - Москва (Павелецкий вокзал)
-                return True
-            if self.marshes[mr_id]['stations'][0]['id'] == 2000006 and self.marshes[mr_id]['stations'][-1]['id'] == 2001100: # Москва (Белорусский вокзал) - аэропорт Шереметьево
-                return True
-            if self.marshes[mr_id]['stations'][0]['id'] == 2001100 and self.marshes[mr_id]['stations'][-1]['id'] == 2000006: # аэропорт Шереметьево - Москва (Белорусский вокзал)
-                return True
-            if self.marshes[mr_id]['stations'][0]['id'] == 2000007 and self.marshes[mr_id]['stations'][-1]['id'] == 2002950: # Москва (Киевский вокзал)  - аэропорт Внуково
-                return True
-            if self.marshes[mr_id]['stations'][0]['id'] == 2002950 and self.marshes[mr_id]['stations'][-1]['id'] == 2000007: # аэропорт Внуково - Москва (Киевский вокзал)
-                return True
-        return False
+        stations = []
+        for item in self.marshes[mr_id]['stations']:
+            stations.append(item['id'])
+        return stations in self.express
     
     def get_json_route(self, mr_id):
         complex_id = '%d:%d:%d' % (group_code, mr_id, 0)
@@ -218,7 +213,9 @@ f_wkt = codecs.open('mos-area.wkt', "r", encoding='utf-8')
 stations = Stations(f_wkt)
 f_wkt.close()
 stations.load()
-routes = UrbanRoutes(stations)
+f_express = codecs.open('aeroexpress_id.json', 'r', encoding='utf-8')
+routes = UrbanRoutes(stations, f_express)
+f_express.close()
 routes.load()
 name_file = 'suburban.json'
 f = codecs.open(name_file, "w", encoding="utf-8")
