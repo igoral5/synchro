@@ -40,7 +40,7 @@ def http_request(request, handler, args, logger=None):
                 webservice = httplib.HTTP(args.host)
                 webservice.putrequest('GET', args.url + request)
                 webservice.putheader('Host', args.host)
-                if args.user and args.passwd:
+                if hasattr(args, 'user') and hasattr(args, 'passwd'):
                     auth = base64.encodestring('%s:%s' % (args.user, args.passwd)).replace('\n', '')
                     webservice.putheader('Authorization', 'Basic %s' % auth)
                 webservice.putheader('Accept-Encoding', 'gzip, deflate')

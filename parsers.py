@@ -409,3 +409,53 @@ class StopsCSVParser(StopsParser, CSVParser):
     def next(self, row):
         self.set(row[0], row[5], row[6], row[3])
 
+class StopsSubXMLParser(StopsParser, XMLParser):
+    '''Парсер остановок в формате MosMap'''
+    def __init__(self):
+        StopsParser.__init__(self)
+        XMLParser.__init__(self)
+
+    
+    def next(self, tag, attrs):
+        if tag == 'station':
+            self.set(attrs['id'], attrs['latitude'], attrs['longitude'], attrs['name'])
+
+class MarshesSubXMLParser(object):
+    '''Парсер маршрутов электричек в формате MosMap'''
+    def __init__(self, logger=None):
+        self._parser = xml.parsers.expat.ParserCreate()
+        self._parser.StartElementHandler = self.next
+        self._parser.EndElementHandler = self.end
+        self.logger = logger
+        self.marshes = {}
+        self.stations = []
+    
+    def ParseFile(self, f):
+        self._parser.ParseFile(f)
+    
+    def next(self, tag, attrs):
+        if tag == 'train':
+            self.stations = []
+            self.mr_id = int(attrs['id'])
+            self.name = attrs['nomer']
+            self.direction = attrs['name']
+            if 'napravlenie' in attrs:
+                self.assignment = attrs['napravlenie']
+            else:
+                self.assignment = None
+            self.days = []
+            for item in attrs['days'].split(','):
+                try:
+                    item_split = item.split('/')
+                    month = int(item_split[0])
+                    day = int(item_split[1])
+                    self.days.append('%02d.%02d' % (day, month))
+                except:
+                    if self.logger:
+                        self.logger.info(u'Ошибочная запись о маршруте электрички id=%d', self.mr_id)
+        elif tag == 'station':
+            self.stations.append({'id': int(attrs['id']), 'time': attrs['time']})
+    
+    def end(self, tag):
+        if tag == 'train':
+            self.marshes[self.mr_id] = {'name': self.name, 'direction': self.direction, 'assignment': self.assignment, 'days': self.days, 'stations': self.stations}
