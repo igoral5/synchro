@@ -113,7 +113,7 @@ class Stations:
             for station in scan(es_client, query, '10m', index=name_index, doc_type='station'):
                 self.es_location[station['_id']] = {'location': {'long': station['_source']['location'][0], 'lat': station['_source']['location'][1] }}
         except:
-            pass
+            logger.error(u'Ошибка чтения остановок из ElasticSearch')
 
 
 class UrbanRoutes:
@@ -144,7 +144,7 @@ class UrbanRoutes:
                 for route in scan(es_client, query, '10m', index=name_index, doc_type='route'):
                     self.es_geometry[route['_id']] = route['_source']['geometry']
         except:
-            pass
+            logger.error(u'Ошибка чтения геометрии из ElasticSearch')
     
     def save(self, file_descriptor):
         for mr_id in self.marshes:
