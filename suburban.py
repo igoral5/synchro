@@ -42,6 +42,8 @@ ch.setFormatter(formatter)
 logger.addHandler(ch)
 logger.setLevel(logging.DEBUG)
 
+name_index = 'region_moskva'
+region_ru = u'Москва'
     
 class Stations:
     '''Обработка остановок электричек'''
@@ -88,7 +90,7 @@ class Stations:
             ],
             'tags': tags,
             'name': u'%s (ж/д)' % self.stations[st_id]['name'],
-            'region': u'Москва'
+            'region': region_ru
         }
         return station
     
@@ -97,20 +99,17 @@ class Stations:
             station = self.get_json(st_id)
             if station == None:
                 continue
-            meta = {'index': {'_index': 'region_moskva', '_type': 'station', '_id': station['id']}}
+            meta = {'index': {'_index': name_index, '_type': 'station', '_id': station['id']}}
             util.save_json_to_file(file_descriptor, meta, station)
     
     def in_moscow_region(self, location):
         point = shapely.geometry.Point(location['long'], location['lat'])
-        if self.mos_region.contains(point):
-            return True
-        else:
-            return False
+        return self.mos_region.contains(point)
     
     def load_old(self):
         query = {'query': {'prefix': { '_id': '%s:' % group_code }}}
         try:
-            for station in scan(es_client, query, '10m', index='region_moskva', doc_type='station'):
+            for station in scan(es_client, query, '10m', index=name_index, doc_type='station'):
                 self.es_location[station['_id']] = {'location': {'long': station['_source']['location'][0], 'lat': station['_source']['location'][1] }}
         except:
             pass
@@ -131,13 +130,13 @@ class UrbanRoutes:
     def load_old(self):
         query = {'query': {'prefix': {'_id': '%d:' % group_code}}}
         try:
-            res1 = es_client.count(index='region_moskva', doc_type='geometry', body=query)
-            res2 = es_client.count(index='region_moskva', doc_type='route', body=query)
+            res1 = es_client.count(index=name_index, doc_type='geometry', body=query)
+            res2 = es_client.count(index=name_index, doc_type='route', body=query)
             if res1['count'] > res2['count']:
-                for geometry in scan(es_client, query, '10m', index='region_moskva', doc_type='geometry'):
+                for geometry in scan(es_client, query, '10m', index=name_index, doc_type='geometry'):
                     self.es_geometry[geometry['_id']] = geometry['_source']['points']
             else:
-                for route in scan(es_client, query, '10m', index='region_moskva', doc_type='route'):
+                for route in scan(es_client, query, '10m', index=name_index, doc_type='route'):
                     self.es_geometry[route['_id']] = route['_source']['geometry']
         except:
             pass
@@ -147,7 +146,7 @@ class UrbanRoutes:
             if self.check_in_area(mr_id) and not self.is_aeroexspress(mr_id):
                 if len(self.marshes[mr_id]['stations']) > 1:
                     route = self.get_json_route(mr_id)
-                    meta = {'index': {'_index': 'region_moskva', '_type': 'route', '_id': route['id']}}
+                    meta = {'index': {'_index': name_index, '_type': 'route', '_id': route['id']}}
                     util.save_json_to_file(file_descriptor, meta, route)
                 else:
                     logger.info(u'На маршруте %s %s id=%d, менее 2 остановок', self.marshes[mr_id]['name'], self.marshes[mr_id]['direction'], mr_id)
@@ -195,7 +194,7 @@ class UrbanRoutes:
         route = {
             'id': complex_id,
             'transport': u'suburban',
-            'region': u'Москва',
+            'region': region_ru,
             'name': '',
             'direction': self.marshes[mr_id]['direction'],
             'assignment': assignment,
@@ -225,10 +224,10 @@ routes.load()
 name_file = 'suburban.json'
 f = codecs.open(name_file, "w", encoding="utf-8")
 if not args.only_create:
-    util.delete_old_doc(es_client, 'region_moskva', 'suburban', group_code, f)
-    util.delete_old_doc(es_client, 'region_moskva', 'geometry', group_code, f)
-    util.delete_old_doc(es_client, 'region_moskva', 'station', group_code, f)
-    util.delete_old_doc(es_client, 'region_moskva', 'route', group_code, f)
+    util.delete_old_doc(es_client, name_index, 'suburban', group_code, f)
+    util.delete_old_doc(es_client, name_index, 'geometry', group_code, f)
+    util.delete_old_doc(es_client, name_index, 'station', group_code, f)
+    util.delete_old_doc(es_client, name_index, 'route', group_code, f)
 routes.save(f)
 stations.save(f)
 f.close()

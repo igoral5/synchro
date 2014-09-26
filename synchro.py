@@ -528,6 +528,7 @@ class RouteExtra(threading.Thread):
             pyproj.transform,
             pyproj.Proj(init='EPSG:4326'),
             pyproj.Proj(init=const.name_proj[args.url[1:]]))
+        self.rasp_time = util.tree()
 
     def run(self):
         try:
@@ -572,7 +573,7 @@ class RouteExtra(threading.Thread):
                 handler = parsers.RaspTimeCSVParser(srv_id, rv_id, self.race_card, logger=logger)
                 request = '/getRaspTime.php?srv_id=%d&rv_id=%d&fmt=csv' % (srv_id, rv_id)
             util.http_request(request, handler, args, logger=logger)
-            self.rasp_time = handler.rasp_time
+            self.rasp_time[(srv_id, rv_id)] = handler.rasp_time[(srv_id, rv_id)]
             logger.debug(u'Скачены расписания для маршрута mr_id=%d, srv_id=%d, rv_id=%d, %s %s' % (self.mr_id, srv_id, rv_id, self.marshes.marshes[self.mr_id]['name'], self.marshes.marshes[self.mr_id]['description']))
     
     def form_file(self):
