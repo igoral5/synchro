@@ -573,7 +573,7 @@ class RouteExtra(threading.Thread):
                 handler = parsers.RaspTimeCSVParser(srv_id, rv_id, self.race_card, logger=logger)
                 request = '/getRaspTime.php?srv_id=%d&rv_id=%d&fmt=csv' % (srv_id, rv_id)
             util.http_request(request, handler, args, logger=logger)
-            self.rasp_time[(srv_id, rv_id)] = handler.rasp_time[(srv_id, rv_id)]
+            self.rasp_time[(srv_id, rv_id)] = handler.rasp_time
             logger.debug(u'Скачены расписания для маршрута mr_id=%d, srv_id=%d, rv_id=%d, %s %s' % (self.mr_id, srv_id, rv_id, self.marshes.marshes[self.mr_id]['name'], self.marshes.marshes[self.mr_id]['description']))
     
     def form_file(self):
@@ -711,7 +711,7 @@ class RouteExtra(threading.Thread):
 
     def create_schedules(self, direction):
         schedules = []
-        for index_st, item in enumerate(self.race_card[direction]):
+        for index_st, _ in enumerate(self.race_card[direction]):
             datas_json = []
             for (srv_id, rv_id) in self.rasp_time:
                 mask = self.marshes.rasp_variants[self.mr_id][(srv_id, rv_id)]['mask']
@@ -791,6 +791,7 @@ class RouteExtra(threading.Thread):
                     continue
             for i, item in enumerate(self.rasp_time[(srv_id, rv_id)][direction]):
                 st_id = item['st_id']
+                pred_rasp_time = []
                 if len(item['time']) == 0:
                     logger.info(u'На маршруте %s %s mr_id=%d, направление %s, (srv_id=%d, rv_id=%d) отсутствует расписание на остановке %s st_id=%d' % (self.marshes.marshes[self.mr_id]['name'], self.marshes.marshes[self.mr_id]['description'], self.mr_id, chr(direction + ord('A')), srv_id, rv_id, self.marshes.stations.get_station(st_id)['name'], st_id))
                     result = False
@@ -898,7 +899,7 @@ class RouteExtra(threading.Thread):
             distance = item['distance']
             time_route = time_route + distance * 1000.0 / 333.33 + 1.0
         step = time_route / count_bus
-        for j in xrange(count_bus):
+        for _ in xrange(count_bus):
             time_stop = time_beg
             while time_stop < time_end:
                 for i, item in enumerate(self.race_card[direction]):

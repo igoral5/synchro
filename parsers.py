@@ -303,9 +303,9 @@ class RaspTimeParser(object):
     def end(self):
         self.rasp_time = util.tree()
         for direction in self.race_card:
-            self.rasp_time[(self.srv_id, self.rv_id)][direction] = []
+            self.rasp_time[direction] = []
             for item in self.race_card[direction]:
-                self.rasp_time[(self.srv_id, self.rv_id)][direction].append({'st_id': item['st_id'], 'time': []})
+                self.rasp_time[direction].append({'st_id': item['st_id'], 'time': []})
         for direction in self.tmp_rasp_time:
             for gr_id in sorted(self.tmp_rasp_time[direction].keys()):
                 for rt_racenum in sorted(self.tmp_rasp_time[direction][gr_id].keys()):
@@ -313,12 +313,12 @@ class RaspTimeParser(object):
                         rt_time = self.tmp_rasp_time[direction][gr_id][rt_racenum][rt_orderby]['time']
                         st_id = self.tmp_rasp_time[direction][gr_id][rt_racenum][rt_orderby]['st_id']
                         self.find_best_place(direction, index_st, st_id, rt_time)
-        for direction in self.rasp_time[(self.srv_id, self.rv_id)]:
-            for item in self.rasp_time[(self.srv_id, self.rv_id)][direction]:
+        for direction in self.rasp_time:
+            for item in self.rasp_time[direction]:
                 item['time'] = sorted(item['time'])
     
     def find_best_place(self, direction, index_st, st_id, rt_time):
-        refer = self.rasp_time[(self.srv_id, self.rv_id)][direction]
+        refer = self.rasp_time[direction]
         if index_st >= 0 and index_st < len(refer) and refer[index_st]['st_id'] == st_id:
             refer[index_st]['time'].append(rt_time)
         else:

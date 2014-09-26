@@ -152,13 +152,12 @@ class UrbanRoutes:
                     logger.info(u'На маршруте %s %s id=%d, менее 2 остановок', self.marshes[mr_id]['name'], self.marshes[mr_id]['direction'], mr_id)
     
     def check_in_area(self, mr_id):
-        ret_value = False
         for item in self.marshes[mr_id]['stations']:
             st_id = item['id']
             station = self.stations.get_station(st_id)
             if station and station['in_moscow_region']:
-                ret_value = True
-        return ret_value
+                return True
+        return False
     
     def is_aeroexspress(self, mr_id):
         ''' Возвращает True, если это аэроэкспресс '''
