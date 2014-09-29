@@ -788,9 +788,9 @@ class RouteExtra(threading.Thread):
                     logger.info(u'Нельзя создать расписание (srv_id=%d, rv_id=%d) для маршрута %s %s mr_id=%d направления %s, причина: не указана опция командной строки' % (srv_id, rv_id, self.marshes.marshes[self.mr_id]['name'], self.marshes.marshes[self.mr_id]['description'], self.mr_id, chr(direction + ord('A'))))
                     result = False
                     continue
+            pred_rasp_time = []  # только для анализатора кода PyDev
             for i, item in enumerate(self.rasp_time[(srv_id, rv_id)][direction]):
                 st_id = item['st_id']
-                pred_rasp_time = []
                 if len(item['time']) == 0:
                     logger.info(u'На маршруте %s %s mr_id=%d, направление %s, (srv_id=%d, rv_id=%d) отсутствует расписание на остановке %s st_id=%d' % (self.marshes.marshes[self.mr_id]['name'], self.marshes.marshes[self.mr_id]['description'], self.mr_id, chr(direction + ord('A')), srv_id, rv_id, self.marshes.stations.get_station(st_id)['name'], st_id))
                     result = False
@@ -859,8 +859,6 @@ class RouteExtra(threading.Thread):
             self.create_schedule_im(direction, srv_id, rv_id, value)
 
     def create_schedule_im(self, direction, srv_id, rv_id, value):
-        if not hasattr(self, 'rasp_time'):
-            self.rasp_time = util.tree()
         self.rasp_time[(srv_id, rv_id)][direction] = []
         for item in self.race_card[direction]:
             st_id = item['st_id']

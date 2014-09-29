@@ -1,0 +1,286 @@
+1;NULL;Авто;/images/auto_list.png;2
+2;NULL;В пути;/images/way_list.png;3
+3;NULL;Услуги;/images/byt_list.png;17
+4;NULL;Деньги;/images/money_list.png;6
+5;NULL;Спорт;/images/sport_list.png;15
+6;NULL;Связь;/images/post_list.png;14
+7;NULL;Медицина;/images/medicine_list.png;9
+8;NULL;Еда;/images/food_list.png;7
+9;NULL;Гостиницы;/images/hotel_list.png;4
+10;NULL;Религия;/images/Religion_list.png;13
+11;NULL;Транспорт;/images/transport_list.png;16
+12;NULL;Отдых;/images/rest_list.png;11
+13;NULL;Культура;/images/culture_list.png;8
+14;NULL;Государство;/images/state_list.png;5
+15;NULL;Покупки;/images/shop_list.png;12
+16;NULL;Образование;/images/education_list.png;10
+18;NULL;СОЧИ-2014;/images/innovation_list.png;1
+1001;1;Автомойки;auto_moika.png;0
+1002;1;Авторынки;auto.png;0
+1003;1;Автосалоны;auto.png;0
+1004;1;Автосервисы;autoservis.png;0
+1005;1;Автосигнализация;auto.png;0
+1006;1;Автостекло;auto.png;0
+1007;1;ГИБДД;miliz.png;0
+1009;1;Автошколы;avto-school.png;0
+1010;1;Экспертиза авто;auto.png;0
+1011;1;АЗС;azs.png;0
+1012;1;АЗС газовые;Gaz.png;0
+1013;1;Штрафные стоянки;evacuator.png;0
+1014;1;Справки для водителей;auto.png;0
+1015;1;Пункты техосмотра (ПТО);auto.png;0
+1016;1;Автозапчасти;auto.png;0
+1017;1;Переоформление авто;auto.png;0
+1019;1;Тюнинг;auto.png;0
+1020;1;Шиномонтаж;schino.png;0
+1021;1;Шины, диски;schino.png;0
+1022;1;Парковки открытые;Stop.png;0
+1023;1;Парковки перехватывающие;Stop.png;0
+1025;1;Прокат авто;auto_prokat.png;0
+1026;1;Мотосалоны;auto_moto.png;0
+1027;1;Парковки крытые;Stop.png;0
+2001;2;Опасные перекрёстки;way.png;0
+2002;2;Засады на дорогах;zasada.png;0
+2003;2;Камеры контроля;kamera.png;0
+2004;2;Лежачие полицейские;poliz_long.png;0
+2005;2;Светофоры;road_traffic-light.png;0
+2006;2;Мосты;most_put.png;0
+2009;2;Посты ДПС;dps.png;0
+2011;2;Ремонт дороги;road_roadworks.png;0
+2013;2;Переезды ж/д;pereezd.png;0
+2014;2;Опасные повороты;road_tur-ndanger.png;0
+2015;2;Зоны отдыха на трассе;road_relax.png;0
+2016;2;Пограничные пункты пропуска;road_control.png;0
+2017;2;Улицы;location.png;1
+2018;2;Населенные пункты;location.png;1
+2020;2;РосЯма;rosyama.png;0
+2021;2;Туалеты;road_WC.png;0
+3001;3;Ателье/ремонт одежды;byt.png;0
+3002;3;Дома быта;byt.png;0
+3003;3;Металлоремонт;services_remont2.png;0
+3004;3;Меховые ателье;byt.png;0
+3005;3;Прокат;byt.png;0
+3006;3;Ремонт аудио, видеотехники;services_remont2.png;0
+3007;3;Ремонт бытовой техники;services_remont2.png;0
+3008;3;Ремонт мебели;services_remont2.png;0
+3009;3;Ремонт мобильных телефонов;services_remont2.png;0
+3010;3;Ремонт обуви;services_remont2.png;0
+3011;3;Ремонт часов;services_remont2.png;0
+3012;3;Ремонт ювелирных изделий;services_lombard.png;0
+3013;3;Фотоуслуги;services_foto.png;0
+3014;3;Химчистки, прачечные;services_khimchistka.png;0
+3015;3;Ремонт кожгалантереи;services_remont.png;0
+3016;3;Визовые центры;services_pen.png;0
+3017;3;Ломбарды;services_lombard.png;0
+3018;3;Переводы;services_pen.png;0
+3020;3;Туристические бюро;services_tour-operator.png;0
+3023;3;Копировальные центры;services_kopir.png;0
+3025;3;Нотариусы;serv_law.png;0
+3026;3;Налоговые консультации;serv_law.png;0
+3027;3;Страхование;services_pen.png;0
+3028;3;Юристы;serv_law.png;0
+3029;3;СПА-центры;services_coliary.png;0
+3030;3;Парикмахерские;services_remont.png;0
+3032;3;Салоны красоты;services_coliary.png;0
+3033;3;Солярии;services_coliary.png;0
+3034;3;Тату-салоны;services_pen.png;0
+3035;3;Гравировка;services_pen.png;0
+3036;3;Упаковка подарков;services_podarky.png;0
+3038;3;Гостиницы для животных;services_zoo.png;0
+3039;15;Чай, кофе;shopping-tea_cofe.png;0
+3040;3;Сервис-центры SHTURMANN;services_remont2.png;0
+4001;4;Банки;money.png;0
+4002;4;Банкоматы;money.png;0
+4003;4;Денежные переводы;money.png;0
+4004;4;Обменные пункты;money.png;0
+4005;4;Бизнес-центры;money.png;0
+5001;5;Бассейны;pool.png;0
+5002;5;Единоборства;edinoborstva.png;0
+5003;5;Конный спорт;racetrack.png;0
+5004;5;Спорткомплексы;sport.png;0
+5005;5;Теннисные корты;tenis.png;0
+5006;5;Тиры, стрелковые клубы;tir.png;0
+5007;5;Фитнес-центры;fitnes.png;0
+5008;5;Школы спортивные;sport.png;0
+5009;5;Горнолыжные трассы;sport-sky-trass.png;0
+5010;5;Гольф;golf.png;0
+5012;5;Яхт-клубы;sport_jacht.png;0
+5013;5;Подводное плавание;swimming.png;0
+5014;5;Лыжные стадионы;sport.png;0
+5015;5;Теннис настольный;tenis.png;0
+5016;5;Аэроклубы;sport-flyingclubs.png;0
+6001;6;Wi-Fi доступ;wi-fi.png;0
+6002;6;Интернет-кафе ;internet.png;0
+6004;6;Телефон, телеграф;telegraf.png;0
+6005;6;Салоны связи;operator.png;0
+6006;6;Почта;post.png;0
+7001;7;Аптеки;apteka.png;0
+7003;7;Больницы;med.png;0
+7004;7;Ветеринарная помощь;vet.png;0
+7005;7;Госпитали;med.png;0
+7006;7;Медицинские центры;med.png;0
+7007;7;Поликлиники;med.png;0
+7008;7;Родильные дома;med.png;0
+7009;7;Стоматология;stomatolog.png;0
+7010;7;Травмпункты;med.png;0
+7012;7;Хосписы;med.png;0
+7013;7;Диспансеры;med.png;0
+7014;7;Медицинские анализы;med.png;0
+7015;7;Донорские центры;donor.png;0
+8001;8;Бары;food-bar.png;0
+8002;8;Кафе;food-zacusochnie.png;0
+8003;8;Кофейни;food-cafe.png;0
+8004;8;Фаст-фуд;food_fastfood.png;0
+8005;8;Рестораны;food-restoran.png;0
+8006;8;Закусочные;food-zacusochnie.png;0
+8007;8;Чайные;food-cafe.png;0
+9001;9;Гостиницы;hotel.png;0
+9002;9;Кемпинги;hotel.png;0
+9003;9;Мотели;hotel.png;0
+9005;9;Хостелы;hotel.png;0
+9006;9;Гостевые дома;hotel.png;0
+10001;10;Духовные училища;Religion.png;0
+10002;10;Католические храмы;Religion.png;0
+10003;10;Мечети;Religion.png;0
+10004;10;Монастыри;Religion.png;0
+10005;10;Православные храмы;Religion.png;0
+10006;10;Святые места;Religion.png;0
+10007;10;Синагоги;Religion.png;0
+10008;10;Протестантские церкви;Religion.png;0
+10009;10;Церкви;Religion.png;0
+10010;10;Индуизм;Religion.png;0
+10011;10;Вера Бахаи;Religion.png;0
+10012;10;Сикхизм;Religion.png;0
+10013;10;Буддизм;Religion.png;0
+11001;11;Автобусные вокзалы;Auto_vokz.png;0
+11002;11;Аэропорты;avia.png;0
+11003;11;Железнодорожные вокзалы;zd_vogz.png;0
+11004;11;Железнодорожные станции;zd_vogz.png;0
+11005;11;Билеты авиа, ж/д;transport.png;0
+11006;11;Станции метро;metro.png;0
+11007;11;Речные причалы;techflot.png;0
+11008;11;Речные вокзалы;techflot.png;0
+11009;14;Таможни;tamogny.png;0
+11010;11;Остановки транспорта;ostanovki.png;0
+11011;11;Паромные переправы;techflot.png;0
+11012;11;Морской транспорт;techflot.png;0
+11013;11;Велодорожки;velodor.png;0
+11014;11;Велопрокат;velodorpark.png;0
+11015;11;Пешеходные зоны;Peshehod.png;0
+11016;11;Билеты на городской транспорт;kassa2.png;0
+12001;12;Аквапарки;fountain.png;0
+12002;12;Аттракционы;relax-Attractions.png;0
+12003;12;Бани и сауны;relax-sauna.png;0
+12004;12;Бильярд;billiards.png;0
+12005;12;Ботанические сады;park.png;0
+12006;12;Боулинг;bowling.png;0
+12007;12;Дельфинарии;dolphinarium.png;0
+12009;12;Загородный отдых;rest.png;0
+12010;12;Зоопарки;zoop.png;0
+12011;12;Спортивные трансляции;relax-sport-bar.png;0
+12012;12;Картинг;cart.png;0
+12013;12;Катки;konki.png;0
+12015;12;Места прогулок;tanz.png;0
+12016;12;Ночные клубы;club.png;0
+12017;12;Охота;relax-hunt.png;0
+12018;12;Зоны отдыха;park.png;0
+12019;12;Пейнтбол;billiards.png;0
+12020;12;Детские лагеря отдыха;detCad.png;0
+12021;12;Пляжи;beach.png;0
+12022;12;Танцы;tanz.png;0
+12023;12;Развлекательные центры;club.png;0
+12024;12;Роллердромы;rollik.png;0
+12025;12;Рыбалка;fishing.png;0
+12027;12;Лодочные станции;boat_Station.png;0
+12029;12;Фонтаны;fountain.png;0
+12030;12;Заповедники;relax-zapovednik.png;0
+12031;12;Национальные парки;park.png;0
+12032;12;Озёра, пруды;services_mere.png;0
+12033;12;Казино;club.png;0
+12034;12;Туристские инфоцентры;club.png;0
+12035;12;Санатории;rest.png;0
+12036;12;Пикниковые зоны;relax-picnic.png;0
+12037;12;Антикафе;relax-anticafe.png;0
+12038;12;Караоке;relax-karaoke.png;0
+12039;12;Букмекерские конторы;отдых.png;0
+13001;13;Галереи, выставки;culture.png;0
+13002;13;Общественные центры;culture.png;0
+13003;13;Достопримечательности;pam.png;0
+13004;13;Консерватории;kultura-conservatory.png;0
+13005;13;Концертные площадки;kultura-concert.png;0
+13006;13;Культурные центры;culture.png;0
+13007;13;Музеи;sights.png;0
+13008;13;Планетарии;planets.png;0
+13009;13;Театры;culture.png;0
+13010;13;Цирки;zirk.png;0
+13011;13;Кинотеатры;cinema.png;0
+13012;13;Выставочные центры;culture.png;0
+13013;13;Памятники;pam.png;0
+14001;14;БТИ;state.png;0
+14002;14;Военкоматы;state.png;0
+14004;14;ЗАГС;zags.png;0
+14005;14;Кладбища, крематории;kladb.png;0
+14006;14;Миграционные службы;gos.png;0
+14007;14;Полиция;14007miliz.png;0
+14008;14;Налоговые инспекции;gos.png;0
+14009;14;Посольства;gos.png;0
+14010;14;Прокуратуры;urist.png;0
+14013;14;Муниципалитеты;state.png;0
+14014;14;Суды;urist.png;0
+14015;14;Судебные приставы;urist.png;0
+14016;14;Власть;gos.png;0
+14017;14;Жилищные инспекции;state.png;0
+14018;14;Социальная защита;gos.png;0
+14019;14;Тюрьмы;prison.png;0
+14020;14;Транспортные инспекции;state.png;0
+14021;14;МФЦ;state.png;0
+14022;14;Расчётные центры ЖКХ;state.png;0
+15001;15;Алкоголь;alko.png;0
+15002;15;Бутики;shop.png;0
+15003;15;Бытовая техника;but_s.png;0
+15004;15;Детские товары;baby.png;0
+15005;15;Зоомагазины;shop_zoo.png;0
+15006;15;Канцтовары;kancelaria.png;0
+15007;15;Книги;book.png;0
+15008;15;Компьютерная техника;shop.png;0
+15009;15;Косметика, парфюмерия;parfum.png;0
+15010;15;Мебель;meb_s.png;0
+15011;15;Обувь;shoes.png;0
+15012;15;Одежда;shop-clothes.png;0
+15013;15;Оптика;optica.png;0
+15014;15;Оружие;arms.png;0
+15015;15;Подарки, сувениры;pod_s.png;0
+15016;15;Рынки, ярмарки;shop.png;0
+15018;15;Сантехника;santeh.png;0
+15019;15;Спортивные товары;shopping-sport.png;0
+15020;15;Стройматериалы;building.png;0
+15021;15;Супермаркеты;shop.png;0
+15022;15;Торговые центры;shop.png;0
+15023;15;Туризм, охота, рыбалка;tourism.png;0
+15024;15;Универмаги;shop.png;0
+15025;15;Хозяйственные товары;hoz_s.png;0
+15026;15;Цветы;flor.png;0
+15027;15;Ювелирные изделия;uvelir.png;0
+15028;15;Мультимедиа;music-kino.png;0
+15029;15;Бельё;underwear.png;0
+15030;15;Музыкальные магазины;music-kino.png;0
+15031;15;Сад, огород;sad_s.png;0
+15032;15;Ортопедические салоны;ort_s.png;0
+15033;15;Инструменты;tool.png;0
+15034;15;Меха;shopping-fur.png;0
+15035;15;Цифровая техника;zif_s.png;0
+15036;15;Гипермаркеты;shop.png;0
+15037;15;Моллы;shop.png;0
+15038;15;Интим-магазины;shopping-intim.png;0
+15039;15;Продукты;shopping-food.png;0
+15040;15;Часы;shopping-watch.png;0
+15041;15;Специализированные магазины;shop.png;0
+15042;15;Секонд-хенд;shop.png;0
+15043;15;Хобби, творчество;shop.png;0
+16001;16;Школы;education.png;0
+16002;16;Высшее профессиональное;education_vuz.png;0
+16003;16;Детские сады;baby_ob.png;0
+16004;16;Среднее профессиональное;education.png;0
+16006;16;Начальное профессиональное;education_vuz.png;0
+16007;16;Военное образование;education.png;0
+16008;16;Научные учреждения;nauka.png;0

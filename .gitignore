@@ -7,4 +7,6 @@
 /metro.json
 /suburban.json
 *.pyc
-
+/Poi.csv
+/region_moskva.json
+/region_podolsk.json
