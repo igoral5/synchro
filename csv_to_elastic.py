@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python2
 # -*- coding: utf-8 -*-
 ''' Script for importing POI data from csv file into Elasticsearch '''
 import os
