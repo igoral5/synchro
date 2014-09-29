@@ -761,7 +761,7 @@ class RouteExtra(threading.Thread):
         return True
 
     def validate_rasptime(self, direction):
-        if not hasattr(self, 'rasp_time'):
+        if len(self.rasp_time) == 0:
             logger.info(u'На маршруте %s %s mr_id=%d полностью отсутствует расписание' % (self.marshes.marshes[self.mr_id]['name'], self.marshes.marshes[self.mr_id]['description'], self.mr_id))
             if args.create_schedule:
                 if self.check_enable_create_schedule(None, -1, -1):
