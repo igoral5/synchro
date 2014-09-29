@@ -5,9 +5,7 @@
 import time
 import argparse
 import os
-import sys
 import codecs
-import locale
 from elasticsearch import Elasticsearch
 import json
 import logging
@@ -15,11 +13,7 @@ import util
 import parsers
 import const
 
-if sys.stdout.encoding is None:
-    sys.stdout = codecs.getwriter(locale.getpreferredencoding())(sys.stdout)
-if sys.stderr.encoding is None:
-    sys.stderr = codecs.getwriter(locale.getpreferredencoding())(sys.stderr)
-locale.setlocale(locale.LC_ALL, '')
+util.conf_io()
 
 argparser = argparse.ArgumentParser(description='Add routes metro in ElasticSearch.')
 argparser.add_argument("--host", dest='host', help='Hostname site TransNavigation, default asip.office.transnavi.ru', default='asip.office.transnavi.ru')

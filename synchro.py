@@ -7,7 +7,6 @@ import sys
 import os
 import signal
 import codecs
-import locale
 import threading
 import time
 import socket
@@ -27,11 +26,7 @@ import util
 import const
 import parsers
 
-if sys.stdout.encoding is None:
-    sys.stdout = codecs.getwriter(locale.getpreferredencoding())(sys.stdout)
-if sys.stderr.encoding is None:
-    sys.stderr = codecs.getwriter(locale.getpreferredencoding())(sys.stderr)
-locale.setlocale(locale.LC_ALL, '')
+util.conf_io()
 
 argparser = argparse.ArgumentParser(description='Synchro ElasticSearch use data TransNavigation.')
 argparser.add_argument("--host", dest='host', help='Hostname site TransNavigation, default asip.office.transnavi.ru', default='asip.office.transnavi.ru')

@@ -16,6 +16,9 @@ import datetime
 import glob
 import os
 import parsers
+import sys
+import codecs
+import locale
 
 def tree():
     return collections.defaultdict(tree)
@@ -131,3 +134,11 @@ def delete_old_doc(es_client, index, doc_type, group_code, file_descriptor):
     for _id in ids:
         meta = {'delete': {'_index': index, '_type': doc_type, '_id': _id}}
         save_json_to_file(file_descriptor, meta)
+        
+def conf_io():
+    if sys.stdout.encoding is None:
+        sys.stdout = codecs.getwriter(locale.getpreferredencoding())(sys.stdout)
+    if sys.stderr.encoding is None:
+        sys.stderr = codecs.getwriter(locale.getpreferredencoding())(sys.stderr)
+    locale.setlocale(locale.LC_ALL, '')
+

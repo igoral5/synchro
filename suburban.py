@@ -7,9 +7,7 @@
 
 import argparse
 import os
-import sys
 import codecs
-import locale
 from elasticsearch import Elasticsearch
 from elasticsearch.helpers import scan
 import logging
@@ -19,12 +17,7 @@ import shapely.wkt
 import shapely.geometry
 import json
 
-
-if sys.stdout.encoding is None:
-    sys.stdout = codecs.getwriter(locale.getpreferredencoding())(sys.stdout)
-if sys.stderr.encoding is None:
-    sys.stderr = codecs.getwriter(locale.getpreferredencoding())(sys.stderr)
-locale.setlocale(locale.LC_ALL, '')
+util.conf_io()
 
 parser = argparse.ArgumentParser(description='Add routes suburban train in ElasticSearch.')
 parser.add_argument("--host", dest='host', help='Hostname site MosMap, default script.moscowmap.ru', default='script.moscowmap.ru')

@@ -5,9 +5,7 @@
 import time
 import argparse
 import os
-import sys
 import codecs
-import locale
 import json
 from elasticsearch import Elasticsearch
 import logging
@@ -15,11 +13,7 @@ import parsers
 import util
 import const
 
-if sys.stdout.encoding is None:
-    sys.stdout = codecs.getwriter(locale.getpreferredencoding())(sys.stdout)
-if sys.stderr.encoding is None:
-    sys.stderr = codecs.getwriter(locale.getpreferredencoding())(sys.stderr)
-locale.setlocale(locale.LC_ALL, '')
+util.conf_io()
 
 parser = argparse.ArgumentParser(description='Add routes aeroexpress in ElasticSearch.')
 parser.add_argument("--host", dest='host', help='Hostname site TransNavigation, default asip.office.transnavi.ru', default='asip.office.transnavi.ru')
