@@ -43,18 +43,18 @@ exists_telemetry = set()
 
 for key in redis_client.keys(query_telemetry):
     key_split = key.split(':')
-    group_code  = int(key_split[2])
-    mr_id = int(key_split[3])
-    direction = int(key_split[4])
+    group_code  = int(key_split[-4])
+    mr_id = int(key_split[-3])
+    direction = int(key_split[-2])
     exists_telemetry.add((group_code, mr_id, direction))
 
 exists_prediction = set()
 
 for key in redis_client.keys(query_prediction):
     key_split = key.split(':')
-    group_code = int(key_split[-3])
-    mr_id = int(key_split[-2])
-    direction = int(key_split[-1])
+    group_code = int(key_split[-6])
+    mr_id = int(key_split[-5])
+    direction = int(key_split[-4])
     exists_prediction.add((group_code, mr_id, direction))
 
 route_count = util.tree()
@@ -62,7 +62,7 @@ route_count = util.tree()
 for key in redis_client.keys(query_report):
     value = [bool(int(item)) for item in redis_client.lrange(key, 0, -1)]
     key_split = key.split(':')
-    region = key_split[3]
+    region = key_split[-4]
     group_code = int(key_split[-3])
     mr_id = int(key_split[-2])
     direction = int(key_split[-1])
