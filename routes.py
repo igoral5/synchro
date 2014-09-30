@@ -36,7 +36,7 @@ if args.region:
     query_report = 'report_info:tn:routes:%s:*' % args.region
 else:
     query_telemetry = 'telemetry:tn:*'
-    query_prediction = 'report_info:tn:routes:*'
+    query_prediction = 'prediction:tn:route:*'
     query_report = 'report_info:tn:routes:*'
 
 exists_telemetry = set()
