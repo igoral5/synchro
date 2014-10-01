@@ -35,7 +35,7 @@ if args.region:
     query_prediction = 'prediction:tn:route:%d:*' % const.group_codes[args.region]
 else:
     regions =[]
-    for region in const.name_region:
+    for region in const.name_urls:
         regions.append({'name': region, 'index': const.name_index_es[region], 'group_code': const.group_codes[region]})
     query_telemetry = 'telemetry:tn:*'
     query_prediction = 'prediction:tn:route:*'
