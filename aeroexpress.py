@@ -26,7 +26,7 @@ parser.add_argument("--port-es", dest='port_es', help='Number port ElasticSearch
 parser.add_argument("--only", dest='only_create', help="Only create file, without loading into ElasticSearch", action='store_true')
 args = parser.parse_args()
 
-logger = logging.getLogger(u'metro-%s' % args.url[1:])
+logger = logging.getLogger(os.path.splitext(os.path.basename(__file__))[0])
 formatter = logging.Formatter(fmt='%(asctime)s %(levelname)-8s %(name)s %(message)s', datefmt="%Y-%m-%d %H:%M:%S %Z")
 ch = logging.StreamHandler()
 ch.setLevel(logging.DEBUG)
