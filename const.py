@@ -24,4 +24,4 @@ group_codes = {'podolsk': 46246000, 'sochi': 3000000, 'krasnoyarsk': 4000000, 'm
 name_proj = {'podolsk': 'EPSG:32637', 'sochi': 'EPSG:32637', 'krasnoyarsk': 'EPSG:32646', 'moscow': 'EPSG:32637'}
 
 #Константа, список всех url
-name_urls = ['moscow', 'podolsk', 'sochi', 'krasnoyarsk']
+name_urls = ['moscow', 'podolsk', 'krasnoyarsk']

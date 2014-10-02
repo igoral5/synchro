@@ -25,18 +25,25 @@ args = parser.parse_args()
 redis_client = redis.StrictRedis( host = args.host_redis, port = args.port_redis, db = args.db_redis )
 es_client = Elasticsearch([{'host': args.host_es, 'port': args.port_es}])
 
-def check_telemetry(code):
-    key = 'telemetry:tn:%d*' % code
+def check_telemetry(group_code):
+    key = 'telemetry:tn:%d*' % group_code
     return len(redis_client.keys(key))
 
-def check_prediction(code):
-    key = 'prediction:tn:route:%d*' % code
+def check_prediction(group_code):
+    key = 'prediction:tn:route:%d*' % group_code
     return len(redis_client.keys(key))
+
+def sort_routes(item):
+    name = item['_source']['name'].replace('*', '')
+    complex_id_split = item['_id'].split(':')
+    mr_id = int(complex_id_split[1])
+    direction = int(complex_id_split[2])
+    return (name, mr_id, direction)
 
 def list_routes(group_code):
     sum_count = 0
     query = {'query': {'prefix': {'_id': '%d:' % group_code }}, '_source': {'include': ['name', 'direction']}}
-    for hit in sorted(scan(es_client, query=query, index='region_*', doc_type='route'), key = lambda item: (item['_source']['name'].replace('*', ''), int(item['_id'].split(':')[2]))):
+    for hit in sorted(scan(es_client, query=query, index='region_*', doc_type='route'), key = sort_routes):
         complex_id = hit['_id']
         complex_id_split = complex_id.split(':')
         mr_id = int(complex_id_split[1])
@@ -61,14 +68,12 @@ else:
     query_telemetry = 'telemetry:tn:*'
 
 route_count_transport = collections.defaultdict(int)
-
 for key in redis_client.keys(query_telemetry):
     key_split = key.split(':')
     group_code = int(key_split[2])
     mr_id = int(key_split[3])
     direction = int(key_split[4])
     route_count_transport[(group_code, mr_id, direction)] += 1
-
 group_codes = {}
 query = {'query': {'match_all': {}}, '_source': {'include': ['region']}}
 for hit in scan(es_client, query=query, index=name_index, doc_type='route'):
@@ -92,6 +97,6 @@ for item in regions:
         print u'\nСписок направлений по %s:\n' % item['name']
         list_routes(item['group_code'])
         print u'\n'
- 
+
 
 

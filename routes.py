@@ -83,13 +83,13 @@ for item in regions:
                 if value[0] and not value[1]:
                     route_count[region]['schedule'] += 1
                     if 'schedule_list' not in route_count[region]:
-                        route_count[region]['schedule_list'] = set()
-                    route_count[region]['schedule_list'].add(u'%8s %-80s' % (route['name'], route['direction']))
+                        route_count[region]['schedule_list'] = {}
+                    route_count[region]['schedule_list'][(route['name'].replace('*', ''), mr_id, direction)] = u'%8s %-100s %d/%d/%d' % (route['name'], route['direction'], group_code, mr_id, direction)
                 if value[0] and not value[2]:
                     route_count[region]['geometry'] += 1
                     if 'geometry_list' not in route_count[region]:
-                        route_count[region]['geometry_list'] = set()
-                    route_count[region]['geometry_list'].add(u'%8s %-80s' % (route['name'], route['direction']))
+                        route_count[region]['geometry_list'] = {}
+                    route_count[region]['geometry_list'][(route['name'].replace('*', ''), mr_id, direction)] = u'%8s %-100s %d/%d/%d' % (route['name'], route['direction'], group_code, mr_id, direction)
                 if value[3]:
                     route_count[region]['generate_schedule'] += 1
                 if (group_code, mr_id, direction) not in exists_telemetry:
@@ -126,8 +126,8 @@ for region in route_count:
 for i, item in enumerate(remark):
     print i + 1
     print
-    for route_str in sorted(item):
-        print route_str
+    for key in sorted(item.keys()):
+        print item[key]
     print
 
 

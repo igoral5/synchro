@@ -21,6 +21,14 @@ parser.add_argument("--start", dest='start', help='Beginning of reporting period
 parser.add_argument("--finish", dest='finish', help='End of the reporting period in format "2013-12-31 12:55:00", default current time', default=time.strftime("%Y-%m-%d %H:%M:%S"))
 args = parser.parse_args()
 
+def sort_routes(item):
+    item_split = item.strip().split(' ')
+    name = item_split[0].replace('*', '')
+    complex_id_split = item_split[-1].split('/')
+    mr_id = int(complex_id_split[-2])
+    direction = int(complex_id_split[-1])
+    return (name, mr_id, direction)
+
 try:
     finish = time.mktime(time.strptime(args.finish, "%Y-%m-%d %H:%M:%S"))
 except:
@@ -47,12 +55,12 @@ for key in redis_client.keys('report_info:tn:change:*'):
     if section == 'station':
         report[time_update][section][operation] = int(redis_client.get(key))
     else:
-        report[time_update][section][operation] = [unicode(item, 'utf-8') for item in redis_client.lrange(key, 0, -1)]
+        report[time_update][section][operation] = [unicode(item, 'utf-8') for item in sorted(redis_client.lrange(key, 0, -1), key=sort_routes)]
 print u'                      Отчет об изменениях, произошедших с %s по %s' % (args.start, args.finish)
 print
-i = 0 
+change = False 
 for time_update in sorted(report.keys()):
-    i = i + 1
+    change = True
     print time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time_update))
     print
     if 'route' in report[time_update]:
@@ -111,5 +119,5 @@ for time_update in sorted(report.keys()):
         if 'delete' in report[time_update]['station']:
             print u'   Удалено   %3d остановок' % report[time_update]['station']['delete']
         print
-if i == 0:
+if not change:
     print u'  Изменений не обнаружено'
