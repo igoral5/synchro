@@ -40,7 +40,7 @@ def sort_routes(item):
     direction = int(complex_id_split[2])
     return (name, mr_id, direction)
 
-def list_routes(group_code):
+def list_routes(group_code, route_count_transport):
     sum_count = 0
     query = {'query': {'prefix': {'_id': '%d:' % group_code }}, '_source': {'include': ['name', 'direction']}}
     for hit in sorted(scan(es_client, query=query, index='region_*', doc_type='route'), key = sort_routes):
@@ -56,47 +56,49 @@ def list_routes(group_code):
         sum_count += route_count_transport[(group_code, mr_id, direction)]
     print u'\nИтого транспортных средств на загруженных направлениях: %d' % sum_count
 
-if args.region:
-    regions = [{'name': const.name_region[args.region], 'group_code': const.group_codes[args.region]}]
-    name_index = const.name_index_es[args.region]
-    query_telemetry = 'telemetry:tn:%d:*' % const.group_codes[args.region]
-else:
-    regions =[]
-    for region in const.name_urls:
-        regions.append({'name': const.name_region[region], 'group_code': const.group_codes[region]})
-    name_index = 'region_*'
-    query_telemetry = 'telemetry:tn:*'
+def main():
+    if args.region:
+        regions = [{'name': const.name_region[args.region], 'group_code': const.group_codes[args.region]}]
+        name_index = const.name_index_es[args.region]
+        query_telemetry = 'telemetry:tn:%d:*' % const.group_codes[args.region]
+    else:
+        regions =[]
+        for region in const.name_urls:
+            regions.append({'name': const.name_region[region], 'group_code': const.group_codes[region]})
+        name_index = 'region_*'
+        query_telemetry = 'telemetry:tn:*'
+    route_count_transport = collections.defaultdict(int)
+    for key in redis_client.keys(query_telemetry):
+        key_split = key.split(':')
+        group_code = int(key_split[2])
+        mr_id = int(key_split[3])
+        direction = int(key_split[4])
+        route_count_transport[(group_code, mr_id, direction)] += 1
+    group_codes = {}
+    query = {'query': {'match_all': {}}, '_source': {'include': ['region']}}
+    for hit in scan(es_client, query=query, index=name_index, doc_type='route'):
+        complex_id = hit['_id']
+        group_code = int(complex_id.split(':')[0])
+        region = hit['_source']['region']
+        if group_code not in group_codes:
+            group_codes[group_code] = {'region': region, 'count': 0}
+        group_codes[group_code]['count'] += 1
+    print u'Количество направлений по регионам\n'
+    count = 0
+    for group_code in group_codes:
+        print u'%8d %-20s %6d' % (group_code, group_codes[group_code]['region'], group_codes[group_code]['count'])
+        count += group_codes[group_code]['count']
+    print u'\nИтого направлений: %d' % count
+    for item in regions:
+        print u'\n%s\n' % item['name']
+        print u'Количество транспортных средств на маршрутах: %d' % check_telemetry(item['group_code'])
+        print u'Количество прогнозов прибытия транспортных средств: %d' % check_prediction(item['group_code'])
+        if args.full_report:
+            print u'\nСписок направлений по %s:\n' % item['name']
+            list_routes(item['group_code'], route_count_transport)
+            print u'\n'
 
-route_count_transport = collections.defaultdict(int)
-for key in redis_client.keys(query_telemetry):
-    key_split = key.split(':')
-    group_code = int(key_split[2])
-    mr_id = int(key_split[3])
-    direction = int(key_split[4])
-    route_count_transport[(group_code, mr_id, direction)] += 1
-group_codes = {}
-query = {'query': {'match_all': {}}, '_source': {'include': ['region']}}
-for hit in scan(es_client, query=query, index=name_index, doc_type='route'):
-    complex_id = hit['_id']
-    group_code = int(complex_id.split(':')[0])
-    region = hit['_source']['region']
-    if group_code not in group_codes:
-        group_codes[group_code] = {'region': region, 'count': 0}
-    group_codes[group_code]['count'] += 1
-print u'Количество направлений по регионам\n'
-count = 0
-for group_code in group_codes:
-    print u'%8d %-20s %6d' % (group_code, group_codes[group_code]['region'], group_codes[group_code]['count'])
-    count += group_codes[group_code]['count']
-print u'\nИтого направлений: %d' % count
-for item in regions:
-    print u'\n%s\n' % item['name']
-    print u'Количество транспортных средств на маршрутах: %d' % check_telemetry(item['group_code'])
-    print u'Количество прогнозов прибытия транспортных средств: %d' % check_prediction(item['group_code'])
-    if args.full_report:
-        print u'\nСписок направлений по %s:\n' % item['name']
-        list_routes(item['group_code'])
-        print u'\n'
-
+if __name__ == '__main__':
+    main()
 
 
