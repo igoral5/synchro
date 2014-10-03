@@ -724,9 +724,13 @@ class RouteExtra(threading.Thread):
                     time_str = time_str[:-1]
                 data_json = {
                     'time': time_str,
-                    'weekday': weekday
+                    'weekday': weekday,
+                    'mask': mask
                 }
                 datas_json.append(data_json)
+            datas_json.sort(key = lambda item: item['mask'])
+            for item in datas_json:
+                del item['mask']
             schedules.append(datas_json)
         return schedules
     
