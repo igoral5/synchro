@@ -14,25 +14,39 @@ import util
 util.conf_io()
 
 argparser = argparse.ArgumentParser(description='Shows the difference between the indices ElasticSearch.')
-argparser.add_argument("--host-es1", dest='host_es1', help='Host name first ElasticSearch, default localhost', default='localhost')
-argparser.add_argument("--port-es1", dest='port_es1', help='Number port first ElasticSearch, default 9200', type=int, default=9200)
-argparser.add_argument("--host-es2", dest='host_es2', help='Host name second ElasticSearch, default localhost', default='localhost')
-argparser.add_argument("--port-es2", dest='port_es2', help='Number port second ElasticSearch, default 9200', type=int, default=9200)
-argparser.add_argument("-g", "--group-code", dest='group_code', help='Group code for query', type=int)
+argparser.add_argument("--host-sour", dest='host_es1', help='Host name source ElasticSearch, default localhost', default='localhost')
+argparser.add_argument("--port-sour", dest='port_es1', help='Number port source ElasticSearch, default 9200', type=int, default=9200)
+argparser.add_argument("--host-dest", dest='host_es2', help='Host name destination ElasticSearch, default localhost', default='localhost')
+argparser.add_argument("--port-dest", dest='port_es2', help='Number port destination ElasticSearch, default 9200', type=int, default=9200)
+argparser.add_argument("-g", "--group-code", dest='group_code', help='Group code for query, not working with key --query-sour and --query-dest', type=int)
 argparser.add_argument("-d", "--doc-type", dest='doc_type', help='Type documents for comparison')
 argparser.add_argument("-m", "--meld", dest='meld', help="Use meld for show difference", action='store_true')
 argparser.add_argument("-f", "--first", dest='first', help="Show only the first N rows of differences, default 10", type=int, default=10)
-argparser.add_argument("index1", metavar='index1', nargs=1, help='Names first index ElasticSearch')
-argparser.add_argument("index2", metavar='index2', nargs=1, help='Names second index ElasticSearch')
+argparser.add_argument("--query-sour", dest='query_sour', help="Query for source ElasticSearch")
+argparser.add_argument("--query-dest", dest='query_dest', help="Query for destination ElasticSearch")
+argparser.add_argument("index1", metavar='index1', nargs=1, help='Names index source ElasticSearch')
+argparser.add_argument("index2", metavar='index2', nargs=1, help='Names index destination ElasticSearch')
 args = argparser.parse_args()
 
 es1 = Elasticsearch([{'host': args.host_es1, 'port': args.port_es1}])
 es2 = Elasticsearch([{'host': args.host_es2, 'port': args.port_es2}])
 
-if args.group_code:
-    query = {'query': {'prefix': { '_id': '%d:' % args.group_code }}}
+if args.query_sour:
+    query_source = json.loads(args.query_sour, encoding='utf-8')
 else:
-    query = {'query': {'match_all': {}}}
+    if args.group_code:
+        query_source = {'query': {'prefix': { '_id': '%d:' % args.group_code }}}
+    else:
+        query_source = {'query': {'match_all': {}}}
+if args.query_dest:
+    query_destination = json.loads(args.query_dest, encoding='utf-8')
+else:
+    if args.query_sour:
+        query_destination = query_source
+    else:
+        if args.group_code:
+            query_destination = {'query': {'prefix': { '_id': '%d:' % args.group_code }}}
+            
 
 if args.doc_type:
     documents = scan(es2, query=query, index=args.index2[0], doc_type=args.doc_type, fields='')
