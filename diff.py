@@ -64,7 +64,7 @@ for hit in documents:
         if doc1 != doc2:
             if args.meld:
                 print u'Различия index=%s, doc_type=%s, id=%s' % (index1, type1, id1)
-                if difference <= args.first:
+                if difference < args.first:
                     name_tmp1 = tempfile.mktemp()
                     name_tmp2 = tempfile.mktemp()
                     with codecs.open(name_tmp1, 'w', encoding='utf-8') as tmp1:

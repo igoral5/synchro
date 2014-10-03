@@ -6,6 +6,7 @@
 /aeroexpress.json
 /metro.json
 /suburban.json
+/cpes.json
 *.pyc
 /Poi.csv
 /region_moskva.json
