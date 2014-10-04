@@ -38,6 +38,7 @@ else:
         query_source = {'query': {'prefix': { '_id': '%d:' % args.group_code }}}
     else:
         query_source = {'query': {'match_all': {}}}
+
 if args.query_dest:
     query_destination = json.loads(args.query_dest, encoding='utf-8')
 else:
@@ -46,38 +47,39 @@ else:
     else:
         if args.group_code:
             query_destination = {'query': {'prefix': { '_id': '%d:' % args.group_code }}}
-            
+        else:
+            query_destination = {'query': {'match_all': {}}}
 
 if args.doc_type:
-    documents = scan(es2, query=query, index=args.index2[0], doc_type=args.doc_type, fields='')
+    documents = scan(es2, query=query_destination, index=args.index2[0], doc_type=args.doc_type, fields='')
 else:
-    documents = scan(es2, query=query, index=args.index2[0], fields='')
+    documents = scan(es2, query=query_destination, index=args.index2[0], fields='')
 
 es2_ids = set()
-for hit in documents:
-    id2=hit['_id']
-    type2=hit['_type']
-    index2=hit['_index']
-    es2_ids.add((index2, type2, id2))
-
+try:
+    for hit in documents:
+        id2=hit['_id']
+        type2=hit['_type']
+        es2_ids.add((type2, id2))
+except:
+    pass
 change = False
 
 if args.doc_type:
-    documents = scan(es1, query=query, index=args.index1[0], doc_type=args.doc_type)
+    documents = scan(es1, query=query_source, index=args.index1[0], doc_type=args.doc_type)
 else:
-    documents = scan(es1, query=query, index=args.index1[0])
+    documents = scan(es1, query=query_source, index=args.index1[0])
 difference = 0
 for hit in documents:
     id1=hit['_id']
     type1=hit['_type']
-    index1=hit['_index']
     doc1=hit['_source']
-    if (index1, type1, id1) in es2_ids:
-        hit2=es2.get(index=index1, doc_type=type1, id=id1)
+    if (type1, id1) in es2_ids:
+        hit2=es2.get(index=args.index2[0], doc_type=type1, id=id1)
         doc2=hit2['_source']
         if doc1 != doc2:
             if args.meld:
-                print u'Различия index=%s, doc_type=%s, id=%s' % (index1, type1, id1)
+                print u'Различия index=%s, doc_type=%s, id=%s' % (args.index1[0], type1, id1)
                 if difference < args.first:
                     name_tmp1 = tempfile.mktemp()
                     name_tmp2 = tempfile.mktemp()
@@ -92,13 +94,13 @@ for hit in documents:
                             os.unlink(name_tmp2)
             difference += 1
             change = True
-        es2_ids.discard((index1, type1, id1))
+        es2_ids.discard((type1, id1))
     else:
-        print u'Во втором не найден документ index=%s, doc_type=%s, id=%s' % (index1, type1, id1)
+        print u'Во втором не найден документ index=%s, doc_type=%s, id=%s' % (args.index2[0], type1, id1)
         change = True
 
-for (index2, type2, id2) in es2_ids:
-    print u'В первом не найден документ index=%s, doc_type=%s, id=%s' % (index2, type2, id2)
+for (type2, id2) in es2_ids:
+    print u'В первом не найден документ index=%s, doc_type=%s, id=%s' % (args.index1[0], type2, id2)
     change = True
 
 if not change:
