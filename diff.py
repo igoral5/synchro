@@ -28,6 +28,22 @@ argparser.add_argument("index1", metavar='index1', nargs=1, help='Names index so
 argparser.add_argument("index2", metavar='index2', nargs=1, help='Names index destination ElasticSearch')
 args = argparser.parse_args()
 
+class TwoTmpFiles(object):
+    def __init__(self):
+        self.file1 = codecs.open(tempfile.mktemp(), 'w', encoding='utf-8')
+        self.file2 = codecs.open(tempfile.mktemp(), 'w', encoding='utf-8')
+    
+    def __enter__(self):
+        return (self.file1, self.file2)
+    
+    def __exit__(self, exception_type, exception_val, trace):
+        if not self.file1.closed:
+            self.file1.close()
+        if not self.file2.closed:
+            self.file2.close()
+        os.unlink(self.file1.name)
+        os.unlink(self.file2.name)
+
 es1 = Elasticsearch([{'host': args.host_es1, 'port': args.port_es1}])
 es2 = Elasticsearch([{'host': args.host_es2, 'port': args.port_es2}])
 
@@ -63,6 +79,7 @@ try:
         es2_ids.add((type2, id2))
 except:
     pass
+
 change = False
 
 if args.doc_type:
@@ -83,15 +100,12 @@ for hit in documents:
                 if difference < args.first:
                     name_tmp1 = tempfile.mktemp()
                     name_tmp2 = tempfile.mktemp()
-                    with codecs.open(name_tmp1, 'w', encoding='utf-8') as tmp1:
-                        with codecs.open(name_tmp2, 'w', encoding='utf-8') as tmp2:
-                            json.dump(doc1, tmp1, ensure_ascii=False, sort_keys=True, indent=4, separators=(',', ': '))
-                            tmp1.close()
-                            json.dump(doc2, tmp2, ensure_ascii=False, sort_keys=True, indent=4, separators=(',', ': '))
-                            tmp2.close()
-                            os.system('meld %s -L "[%s:%d] %s" %s -L "[%s:%d] %s"' % (name_tmp1, args.host_es1, args.port_es1, id1, name_tmp2, args.host_es2, args.port_es2, id1))
-                            os.unlink(name_tmp1)
-                            os.unlink(name_tmp2)
+                    with TwoTmpFiles() as (tmp1, tmp2):
+                        json.dump(doc1, tmp1, ensure_ascii=False, sort_keys=True, indent=4, separators=(',', ': '))
+                        tmp1.close()
+                        json.dump(doc2, tmp2, ensure_ascii=False, sort_keys=True, indent=4, separators=(',', ': '))
+                        tmp2.close()
+                        os.system('meld %s -L "[%s:%d] %s" %s -L "[%s:%d] %s"' % (name_tmp1, args.host_es1, args.port_es1, id1, name_tmp2, args.host_es2, args.port_es2, id1))
             difference += 1
             change = True
         es2_ids.discard((type1, id1))
