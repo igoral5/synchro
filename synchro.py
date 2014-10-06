@@ -72,31 +72,29 @@ class JSONFormatter(logging.Formatter):
             json_obj['marker'] = record.marker
         return json.dumps(json_obj, ensure_ascii=False)
 
-SUBINFO = 15
-logging.addLevelName(SUBINFO, 'SUBINFO')
-
-def subinfo(self, message, *args, **kws):
-    self.log(SUBINFO, message, *args, **kws) 
-
-logging.Logger.subinfo = subinfo
 logger = logging.getLogger(u'synchro-%s' % args.url[1:])
 formatter = logging.Formatter(fmt='%(asctime)s %(levelname)-8s %(name)s %(message)s', datefmt="%Y-%m-%d %H:%M:%S %Z")
 ch = logging.StreamHandler()
 ch.setLevel(logging.INFO)
 ch.setFormatter(formatter)
 logger.addHandler(ch)
+logger_elasticsearch = logging.getLogger('elasticsearch')
+logger_elasticsearch.addHandler(ch)
 if args.txt_log:
     fh = logging.handlers.TimedRotatingFileHandler(args.txt_log, encoding='utf-8', when='midnight', backupCount=7)
     fh.setLevel(logging.DEBUG)
     fh.setFormatter(formatter)
     logger.addHandler(fh)
+    logger_elasticsearch.addHandler(fh)
 if args.json_log:
     jh = logging.handlers.TimedRotatingFileHandler(args.json_log, encoding='utf-8', when='midnight', backupCount=7)
     jh.setLevel(logging.DEBUG)
     jformatter = JSONFormatter()
     jh.setFormatter(jformatter)
     logger.addHandler(jh)
+    logger_elasticsearch.addHandler(jh)
 logger.setLevel(logging.DEBUG)
+logger_elasticsearch.setLevel(logging.DEBUG)
 
 class SynchroStations(object):
     '''Синхронизация остановок транспорта'''
@@ -941,7 +939,7 @@ try:
         os.remove(name_file)
         if change_checksum:
             synchro_routes.set_checksum()
-        logger.subinfo(u'Изменений не обнаружено, выполнено за %.1f сек.' % (time.time() - current_time), extra={'marker': 'nagios'})
+        logger.debug(u'Изменений не обнаружено, выполнено за %.1f сек.' % (time.time() - current_time), extra={'marker': 'nagios'})
     util.delete_old_files('elasticsearch/%s_*.json' % args.url[1:], 7, current_time, logger=logger)
 except Exception, e:
     logger.exception(e, extra={'marker': 'nagios'})

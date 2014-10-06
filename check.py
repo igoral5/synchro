@@ -7,6 +7,7 @@ import argparse
 from elasticsearch import Elasticsearch
 from elasticsearch.helpers import scan
 import collections
+import logging
 import const
 import util
 
@@ -21,6 +22,9 @@ parser.add_argument("--port-es", dest='port_es', help='Number port ElasticSearch
 parser.add_argument("--only", dest='region', help="Make a report, only the specified region", choices=const.name_urls)
 parser.add_argument("--list", dest='full_report', help='Out full list directions', action='store_true')
 args = parser.parse_args()
+
+logger = logging.getLogger('elasticsearch')
+logger.addHandler(logging.NullHandler())
 
 redis_client = redis.StrictRedis( host = args.host_redis, port = args.port_redis, db = args.db_redis )
 es_client = Elasticsearch([{'host': args.host_es, 'port': args.port_es}])
