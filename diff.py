@@ -78,14 +78,15 @@ class TranslateName(object):
         destination_split = destination.split(',')
         if self.template(source_split) or self.template(destination_split):
             self.not_translate = True
+        elif source_split == destination_split:
+            self.not_translate = True
+        elif len(source_split) == len(destination_split):
+            self.convert = {}
+            for i1, i2 in zip(source_split, destination_split):
+                self.convert[i1] = i2
+            self.not_translate = False
         else:
-            if len(source_split) == len(destination_split):
-                self.convert = {}
-                for i1, i2 in zip(source_split, destination_split):
-                    self.convert[i1] = i2
-                self.not_translate = False
-            else:
-                self.not_translate = True
+            self.not_translate = True
     
     def trans(self, source_name):
         if self.not_translate:
