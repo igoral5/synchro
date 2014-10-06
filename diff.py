@@ -5,9 +5,7 @@
 import argparse
 import os
 import sys
-import tempfile
 import json
-import codecs
 import logging
 import util
 
@@ -25,22 +23,6 @@ args = argparser.parse_args()
 
 logger = logging.getLogger('elasticsearch')
 logger.addHandler(logging.NullHandler())
-
-class TwoTmpFiles(object):
-    def __init__(self):
-        self.file1 = codecs.open(tempfile.mktemp(), 'w', encoding='utf-8')
-        self.file2 = codecs.open(tempfile.mktemp(), 'w', encoding='utf-8')
-    
-    def __enter__(self):
-        return (self.file1, self.file2)
-    
-    def __exit__(self, exception_type, exception_val, trace):
-        if not self.file1.closed:
-            self.file1.close()
-        if not self.file2.closed:
-            self.file2.close()
-        os.unlink(self.file1.name)
-        os.unlink(self.file2.name)
 
 util.parse_args(args)
 
@@ -71,7 +53,7 @@ try:
                 print u'Различия index=%s, doc_type=%s, id=%s' % (index1, type1, id1)
                 if args.meld:
                     if difference < args.first:
-                        with TwoTmpFiles() as (tmp1, tmp2):
+                        with util.TwoTmpFiles() as (tmp1, tmp2):
                             json.dump(doc1, tmp1, ensure_ascii=False, sort_keys=True, indent=4, separators=(',', ': '))
                             tmp1.close()
                             json.dump(doc2, tmp2, ensure_ascii=False, sort_keys=True, indent=4, separators=(',', ': '))

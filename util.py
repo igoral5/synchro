@@ -1,6 +1,6 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
-'''Различные общие функции'''
+'''Различные общие классы и функции'''
 
 import collections
 import json
@@ -21,6 +21,7 @@ import sys
 import codecs
 import locale
 import re
+import tempfile
 
 def tree():
     return collections.defaultdict(tree)
@@ -255,4 +256,20 @@ def parse_args(args, logger=None):
     else:
         args.documents_source = scan(args.es_source, query=query_source, index=source_index)
     args.translate = TranslateName(source_index, destination_index)
+
+class TwoTmpFiles(object):
+    def __init__(self):
+        self.file1 = codecs.open(tempfile.mktemp(), 'w', encoding='utf-8')
+        self.file2 = codecs.open(tempfile.mktemp(), 'w', encoding='utf-8')
+    
+    def __enter__(self):
+        return (self.file1, self.file2)
+    
+    def __exit__(self, exception_type, exception_val, trace):
+        if not self.file1.closed:
+            self.file1.close()
+        if not self.file2.closed:
+            self.file2.close()
+        os.unlink(self.file1.name)
+        os.unlink(self.file2.name)
 
