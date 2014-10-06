@@ -2,15 +2,12 @@
 # -*- coding: utf-8 -*-
 '''Проверяет документы в двух различных ElasticSearch документы на соответcтвие'''
 
-from elasticsearch import Elasticsearch
-from elasticsearch.helpers import scan
 import argparse
 import os
 import sys
 import tempfile
 import json
 import codecs
-import re
 import logging
 import util
 
@@ -29,33 +26,6 @@ args = argparser.parse_args()
 logger = logging.getLogger('elasticsearch')
 logger.addHandler(logging.NullHandler())
 
-regexp = re.compile(u'^(http://)?([\w\.-]+)(:(\d+))?/([\w\*\.\?,-]+)(/([\w\*\.\?,-]+))?/?$', re.IGNORECASE | re.UNICODE)
-
-res = regexp.match(args.source[0])
-if res:
-    args.source_host = res.group(2)
-    args.source_index = res.group(5)
-    args.source_doc = res.group(7)
-    if res.group(4):
-        args.source_port = int(res.group(4))
-    else:
-        args.source_port = 9200
-else:
-    print >> sys.stderr, u'Неверный формат источника ElasticSearch'
-    sys.exit(1)
-res = regexp.match(args.destination[0])
-if res:
-    args.destination_host = res.group(2)
-    args.destination_index = res.group(5)
-    args.destination_doc = res.group(7)
-    if res.group(4):
-        args.destination_port = int(res.group(4))
-    else:
-        args.destination_port = 9200
-else:
-    print >> sys.stderr, u'Неверный формат получателя ElasticSearch'
-    sys.exit(1)
-
 class TwoTmpFiles(object):
     def __init__(self):
         self.file1 = codecs.open(tempfile.mktemp(), 'w', encoding='utf-8')
@@ -72,81 +42,11 @@ class TwoTmpFiles(object):
         os.unlink(self.file1.name)
         os.unlink(self.file2.name)
 
-class TranslateName(object):
-    def __init__(self, source, destination):
-        source_split = source.split(',')
-        destination_split = destination.split(',')
-        if self.template(source_split) or self.template(destination_split):
-            self.not_translate = True
-        elif source_split == destination_split:
-            self.not_translate = True
-        elif len(source_split) == len(destination_split):
-            self.convert = {}
-            for i1, i2 in zip(source_split, destination_split):
-                self.convert[i1] = i2
-            self.not_translate = False
-        else:
-            self.not_translate = True
-    
-    def trans(self, source_name):
-        if self.not_translate:
-            return source_name
-        else:
-            try:
-                return self.convert[source_name]
-            except:
-                return source_name
-    
-    def template(self, name_index):
-        for s in name_index:
-            if s[0] == '_':
-                return True
-            if s.find('*') != -1:
-                return True
-            if s.find('?') != -1:
-                return True
-        return False
-
-es1 = Elasticsearch([{'host': args.source_host, 'port': args.source_port}])
-es2 = Elasticsearch([{'host': args.destination_host, 'port': args.destination_port}])
-
-translate = TranslateName(args.source_index, args.destination_index)
-
-if args.query_sour:
-    try:
-        query_source = json.loads(args.query_sour, encoding='utf-8')
-    except:
-        print >> sys.stderr, u'Неверный формат запроса источника'
-        sys.exit(1)
-else:
-    if args.group_code:
-        query_source = {'query': {'prefix': { '_id': '%d:' % args.group_code }}}
-    else:
-        query_source = {'query': {'match_all': {}}}
-
-if args.query_dest:
-    try:
-        query_destination = json.loads(args.query_dest, encoding='utf-8')
-    except:
-        print >> sys.stderr, u'Неверный формат запроса получателя'
-        sys.exit(1)
-else:
-    if args.query_sour:
-        query_destination = query_source
-    else:
-        if args.group_code:
-            query_destination = {'query': {'prefix': { '_id': '%d:' % args.group_code }}}
-        else:
-            query_destination = {'query': {'match_all': {}}}
-
-if args.destination_doc:
-    documents = scan(es2, query=query_destination, index=args.destination_index, doc_type=args.destination_doc, fields='')
-else:
-    documents = scan(es2, query=query_destination, index=args.destination_index, fields='')
+util.parse_args(args)
 
 dest_ids = set()
 try:
-    for hit in documents:
+    for hit in args.documents_destination:
         index2 = hit['_index']
         id2=hit['_id']
         type2=hit['_type']
@@ -156,20 +56,16 @@ except:
 
 change = False
 
-if args.source_doc:
-    documents = scan(es1, query=query_source, index=args.source_index, doc_type=args.source_doc)
-else:
-    documents = scan(es1, query=query_source, index=args.source_index)
 difference = 0
 try:
-    for hit in documents:
+    for hit in args.documents_source:
         index1 = hit['_index']
-        index2 = translate.trans(index1)
+        index2 = args.translate.trans(index1)
         id1=hit['_id']
         type1=hit['_type']
         doc1=hit['_source']
         if (index2, type1, id1) in dest_ids:
-            hit2=es2.get(index2, doc_type=type1, id=id1)
+            hit2=args.es_dest.get(index2, doc_type=type1, id=id1)
             doc2=hit2['_source']
             if doc1 != doc2:
                 print u'Различия index=%s, doc_type=%s, id=%s' % (index1, type1, id1)
