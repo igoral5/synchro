@@ -6,27 +6,55 @@ from elasticsearch import Elasticsearch
 from elasticsearch.helpers import scan
 import argparse
 import os
+import sys
 import tempfile
 import json
 import codecs
+import re
+import logging
 import util
 
 util.conf_io()
 
 argparser = argparse.ArgumentParser(description='Shows the difference between the indices ElasticSearch.')
-argparser.add_argument("--host-sour", dest='host_es1', help='Host name source ElasticSearch, default localhost', default='localhost')
-argparser.add_argument("--port-sour", dest='port_es1', help='Number port source ElasticSearch, default 9200', type=int, default=9200)
-argparser.add_argument("--host-dest", dest='host_es2', help='Host name destination ElasticSearch, default localhost', default='localhost')
-argparser.add_argument("--port-dest", dest='port_es2', help='Number port destination ElasticSearch, default 9200', type=int, default=9200)
-argparser.add_argument("-g", "--group-code", dest='group_code', help='Group code for query, not working with key --query-sour and --query-dest', type=int)
-argparser.add_argument("-d", "--doc-type", dest='doc_type', help='Type documents for comparison')
-argparser.add_argument("-m", "--meld", dest='meld', help="Use meld for show difference", action='store_true')
-argparser.add_argument("-f", "--first", dest='first', help="Show only the first N rows of differences, default 10", type=int, default=10)
+argparser.add_argument("source", metavar='source', nargs=1, help='URL source ElasticSearch in format [http://]name_host.com[:9200]/name_index[/doc_type]')
+argparser.add_argument("destination", metavar='destination', nargs=1, help='URL destination ElasticSearch in format [http://]name_host.com[:9200]/name_index[/doc_type]')
 argparser.add_argument("--query-sour", dest='query_sour', help="Query for source ElasticSearch")
 argparser.add_argument("--query-dest", dest='query_dest', help="Query for destination ElasticSearch")
-argparser.add_argument("index1", metavar='index1', nargs=1, help='Names index source ElasticSearch')
-argparser.add_argument("index2", metavar='index2', nargs=1, help='Names index destination ElasticSearch')
+argparser.add_argument("-g", "--group-code", dest='group_code', help='Group code for query, not working with keys --query-sour and --query-dest', type=int)
+argparser.add_argument("-m", "--meld", dest='meld', help="Use meld for show difference", action='store_true')
+argparser.add_argument("-f", "--first", dest='first', help="Show only the first N rows of differences, default 10", type=int, default=10)
 args = argparser.parse_args()
+
+logger = logging.getLogger('elasticsearch')
+logger.addHandler(logging.NullHandler())
+
+regexp = re.compile(u'^(http://)?([\w\.-]+)(:(\d+))?/([\w\*\.\?,-]+)(/([\w\*\.\?,-]+))?/?$', re.IGNORECASE | re.UNICODE)
+
+res = regexp.match(args.source[0])
+if res:
+    args.source_host = res.group(2)
+    args.source_index = res.group(5)
+    args.source_doc = res.group(7)
+    if res.group(4):
+        args.source_port = int(res.group(4))
+    else:
+        args.source_port = 9200
+else:
+    print >> sys.stderr, u'Неверный формат источника ElasticSearch'
+    sys.exit(1)
+res = regexp.match(args.destination[0])
+if res:
+    args.destination_host = res.group(2)
+    args.destination_index = res.group(5)
+    args.destination_doc = res.group(7)
+    if res.group(4):
+        args.destination_port = int(res.group(4))
+    else:
+        args.destination_port = 9200
+else:
+    print >> sys.stderr, u'Неверный формат получателя ElasticSearch'
+    sys.exit(1)
 
 class TwoTmpFiles(object):
     def __init__(self):
@@ -44,11 +72,51 @@ class TwoTmpFiles(object):
         os.unlink(self.file1.name)
         os.unlink(self.file2.name)
 
-es1 = Elasticsearch([{'host': args.host_es1, 'port': args.port_es1}])
-es2 = Elasticsearch([{'host': args.host_es2, 'port': args.port_es2}])
+class TranslateName(object):
+    def __init__(self, source, destination):
+        source_split = source.split(',')
+        destination_split = destination.split(',')
+        if self.template(source_split) or self.template(destination_split):
+            self.not_translate = True
+        else:
+            if len(source_split) == len(destination_split):
+                self.convert = {}
+                for i1, i2 in zip(source_split, destination_split):
+                    self.convert[i1] = i2
+                self.not_translate = False
+            else:
+                self.not_translate = True
+    
+    def trans(self, source_name):
+        if self.not_translate:
+            return source_name
+        else:
+            try:
+                return self.convert[source_name]
+            except:
+                return source_name
+    
+    def template(self, name_index):
+        for s in name_index:
+            if s[0] == '_':
+                return True
+            if s.find('*') != -1:
+                return True
+            if s.find('?') != -1:
+                return True
+        return False
+
+es1 = Elasticsearch([{'host': args.source_host, 'port': args.source_port}])
+es2 = Elasticsearch([{'host': args.destination_host, 'port': args.destination_port}])
+
+translate = TranslateName(args.source_index, args.destination_index)
 
 if args.query_sour:
-    query_source = json.loads(args.query_sour, encoding='utf-8')
+    try:
+        query_source = json.loads(args.query_sour, encoding='utf-8')
+    except:
+        print >> sys.stderr, u'Неверный формат запроса источника'
+        sys.exit(1)
 else:
     if args.group_code:
         query_source = {'query': {'prefix': { '_id': '%d:' % args.group_code }}}
@@ -56,7 +124,11 @@ else:
         query_source = {'query': {'match_all': {}}}
 
 if args.query_dest:
-    query_destination = json.loads(args.query_dest, encoding='utf-8')
+    try:
+        query_destination = json.loads(args.query_dest, encoding='utf-8')
+    except:
+        print >> sys.stderr, u'Неверный формат запроса получателя'
+        sys.exit(1)
 else:
     if args.query_sour:
         query_destination = query_source
@@ -66,55 +138,60 @@ else:
         else:
             query_destination = {'query': {'match_all': {}}}
 
-if args.doc_type:
-    documents = scan(es2, query=query_destination, index=args.index2[0], doc_type=args.doc_type, fields='')
+if args.destination_doc:
+    documents = scan(es2, query=query_destination, index=args.destination_index, doc_type=args.destination_doc, fields='')
 else:
-    documents = scan(es2, query=query_destination, index=args.index2[0], fields='')
+    documents = scan(es2, query=query_destination, index=args.destination_index, fields='')
 
-es2_ids = set()
+dest_ids = set()
 try:
     for hit in documents:
+        index2 = hit['_index']
         id2=hit['_id']
         type2=hit['_type']
-        es2_ids.add((type2, id2))
+        dest_ids.add((index2, type2, id2))
 except:
     pass
 
 change = False
 
-if args.doc_type:
-    documents = scan(es1, query=query_source, index=args.index1[0], doc_type=args.doc_type)
+if args.source_doc:
+    documents = scan(es1, query=query_source, index=args.source_index, doc_type=args.source_doc)
 else:
-    documents = scan(es1, query=query_source, index=args.index1[0])
+    documents = scan(es1, query=query_source, index=args.source_index)
 difference = 0
-for hit in documents:
-    id1=hit['_id']
-    type1=hit['_type']
-    doc1=hit['_source']
-    if (type1, id1) in es2_ids:
-        hit2=es2.get(index=args.index2[0], doc_type=type1, id=id1)
-        doc2=hit2['_source']
-        if doc1 != doc2:
-            if args.meld:
-                print u'Различия index=%s, doc_type=%s, id=%s' % (args.index1[0], type1, id1)
-                if difference < args.first:
-                    name_tmp1 = tempfile.mktemp()
-                    name_tmp2 = tempfile.mktemp()
-                    with TwoTmpFiles() as (tmp1, tmp2):
-                        json.dump(doc1, tmp1, ensure_ascii=False, sort_keys=True, indent=4, separators=(',', ': '))
-                        tmp1.close()
-                        json.dump(doc2, tmp2, ensure_ascii=False, sort_keys=True, indent=4, separators=(',', ': '))
-                        tmp2.close()
-                        os.system('meld %s -L "[%s:%d] %s" %s -L "[%s:%d] %s"' % (name_tmp1, args.host_es1, args.port_es1, id1, name_tmp2, args.host_es2, args.port_es2, id1))
-            difference += 1
+try:
+    for hit in documents:
+        index1 = hit['_index']
+        index2 = translate.trans(index1)
+        id1=hit['_id']
+        type1=hit['_type']
+        doc1=hit['_source']
+        if (index2, type1, id1) in dest_ids:
+            hit2=es2.get(index2, doc_type=type1, id=id1)
+            doc2=hit2['_source']
+            if doc1 != doc2:
+                print u'Различия index=%s, doc_type=%s, id=%s' % (index1, type1, id1)
+                if args.meld:
+                    if difference < args.first:
+                        with TwoTmpFiles() as (tmp1, tmp2):
+                            json.dump(doc1, tmp1, ensure_ascii=False, sort_keys=True, indent=4, separators=(',', ': '))
+                            tmp1.close()
+                            json.dump(doc2, tmp2, ensure_ascii=False, sort_keys=True, indent=4, separators=(',', ': '))
+                            tmp2.close()
+                            os.system('meld %s -L "[%s:%d] %s" %s -L "[%s:%d] %s"' % (tmp1.name, args.source_host, args.source_port, id1, tmp2.name, args.destination_host, args.destination_port, id1))
+                    difference += 1
+                change = True
+            dest_ids.discard((index2, type1, id1))
+        else:
+            print u'В приемнике не найден документ index=%s, doc_type=%s, id=%s' % (index2, type1, id1)
             change = True
-        es2_ids.discard((type1, id1))
-    else:
-        print u'Во втором не найден документ index=%s, doc_type=%s, id=%s' % (args.index2[0], type1, id1)
-        change = True
+except Exception as e:
+    print >> sys.stderr, u'Возникла ошибка при чтении источника', e
+    sys.exit(1)
 
-for (type2, id2) in es2_ids:
-    print u'В первом не найден документ index=%s, doc_type=%s, id=%s' % (args.index1[0], type2, id2)
+for (index2, type2, id2) in dest_ids:
+    print u'В источнике не найден документ index=%s, doc_type=%s, id=%s' % (index2, type2, id2)
     change = True
 
 if not change:

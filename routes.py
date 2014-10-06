@@ -6,8 +6,8 @@ import redis
 import argparse
 import collections
 from elasticsearch import Elasticsearch
-from elasticsearch.client import IndicesClient
 from elasticsearch.helpers import scan
+import logging
 import util
 import const
 
@@ -22,12 +22,13 @@ parser.add_argument("--port-es", dest='port_es', help='Number port ElasticSearch
 parser.add_argument("--only", dest='region', help="Make a report, only the specified region", choices=const.name_urls)
 args = parser.parse_args()
 
+logger = logging.getLogger('elasticsearch')
+logger.addHandler(logging.NullHandler())
+
 route_count = util.tree()
 
 redis_client = redis.StrictRedis( host = args.host_redis, port = args.port_redis, db = args.db_redis )
 es_client = Elasticsearch([{'host': args.host_es, 'port': args.port_es}])
-es_index = IndicesClient(es_client)
-list_indexes = [index for index in es_index.status()['indices']]
 
 if args.region:
     regions = [{'name': args.region, 'index': const.name_index_es[args.region], 'group_code': const.group_codes[args.region]}]
@@ -59,45 +60,44 @@ for key in redis_client.keys(query_prediction):
     exists_prediction.add((group_code, mr_id, direction))
 
 for item in regions:
-    if item['index'] in list_indexes:
-        region = item['name']
-        query = {'query': {'prefix': {'_id': '%d:' % item['group_code']}}, '_source': {'include': ['name', 'direction']}}
-        exists = False
-        for hit in scan(es_client, query=query, index=item['index'], doc_type='route'):
-            complex_id = hit['_id']
-            complex_id_split = complex_id.split(':')
-            group_code = int(complex_id_split[0])
-            mr_id = int(complex_id_split[1])
-            direction = int(complex_id_split[2])
-            route = hit['_source']
-            key = 'report_info:tn:routes:%s:%d:%d:%d' % (region, group_code, mr_id, direction)
-            if redis_client.exists(key):
-                if region not in route_count:
-                    route_count[region] = collections.defaultdict(int)
-                exists = True
-                value = [bool(int(item)) for item in redis_client.lrange(key, 0, -1)]
-                if value[0]:
-                    route_count[region]['loaded'] += 1
-                if value[0] and value[1] and value[2]:
-                    route_count[region]['validate'] += 1
-                if value[0] and not value[1]:
-                    route_count[region]['schedule'] += 1
-                    if 'schedule_list' not in route_count[region]:
-                        route_count[region]['schedule_list'] = {}
-                    route_count[region]['schedule_list'][(route['name'].replace('*', ''), mr_id, direction)] = u'%8s %-100s %d/%d/%d' % (route['name'], route['direction'], group_code, mr_id, direction)
-                if value[0] and not value[2]:
-                    route_count[region]['geometry'] += 1
-                    if 'geometry_list' not in route_count[region]:
-                        route_count[region]['geometry_list'] = {}
-                    route_count[region]['geometry_list'][(route['name'].replace('*', ''), mr_id, direction)] = u'%8s %-100s %d/%d/%d' % (route['name'], route['direction'], group_code, mr_id, direction)
-                if value[3]:
-                    route_count[region]['generate_schedule'] += 1
-                if (group_code, mr_id, direction) not in exists_telemetry:
-                    route_count[region]['telemetry'] += 1
-                if (group_code, mr_id, direction) not in exists_prediction:
-                    route_count[region]['prediction'] += 1
-        if exists:
-            route_count[region]['all'] = len(redis_client.keys('report_info:tn:routes:%s:*' % region))
+    region = item['name']
+    query = {'query': {'prefix': {'_id': '%d:' % item['group_code']}}, '_source': {'include': ['name', 'direction']}}
+    exists = False
+    for hit in scan(es_client, query=query, index=item['index'], doc_type='route'):
+        complex_id = hit['_id']
+        complex_id_split = complex_id.split(':')
+        group_code = int(complex_id_split[0])
+        mr_id = int(complex_id_split[1])
+        direction = int(complex_id_split[2])
+        route = hit['_source']
+        key = 'report_info:tn:routes:%s:%d:%d:%d' % (region, group_code, mr_id, direction)
+        if redis_client.exists(key):
+            if region not in route_count:
+                route_count[region] = collections.defaultdict(int)
+            exists = True
+            value = [bool(int(item)) for item in redis_client.lrange(key, 0, -1)]
+            if value[0]:
+                route_count[region]['loaded'] += 1
+            if value[0] and value[1] and value[2]:
+                route_count[region]['validate'] += 1
+            if value[0] and not value[1]:
+                route_count[region]['schedule'] += 1
+                if 'schedule_list' not in route_count[region]:
+                    route_count[region]['schedule_list'] = {}
+                route_count[region]['schedule_list'][(route['name'].replace('*', ''), mr_id, direction)] = u'%8s %-100s %d/%d/%d' % (route['name'], route['direction'], group_code, mr_id, direction)
+            if value[0] and not value[2]:
+                route_count[region]['geometry'] += 1
+                if 'geometry_list' not in route_count[region]:
+                    route_count[region]['geometry_list'] = {}
+                route_count[region]['geometry_list'][(route['name'].replace('*', ''), mr_id, direction)] = u'%8s %-100s %d/%d/%d' % (route['name'], route['direction'], group_code, mr_id, direction)
+            if value[3]:
+                route_count[region]['generate_schedule'] += 1
+            if (group_code, mr_id, direction) not in exists_telemetry:
+                route_count[region]['telemetry'] += 1
+            if (group_code, mr_id, direction) not in exists_prediction:
+                route_count[region]['prediction'] += 1
+    if exists:
+        route_count[region]['all'] = len(redis_client.keys('report_info:tn:routes:%s:*' % region))
         
 remark = []
 for region in route_count:
