@@ -20,7 +20,7 @@ argparser.add_argument("source", metavar='source', nargs=1, help='URL source Ela
 argparser.add_argument("destination", metavar='destination', nargs=1, help='URL destination ElasticSearch in format [http://]name_host.com[:9200]/name_index[/doc_type]')
 argparser.add_argument("--query-sour", dest='query_sour', help="Query for source ElasticSearch")
 argparser.add_argument("--query-dest", dest='query_dest', help="Query for destination ElasticSearch")
-argparser.add_argument("-g", "--group-code", dest='group_code', help='Group code for query, work only without key --query-sour and  --query-dest', type=int)
+argparser.add_argument("-g", "--group-code", dest='group_code', help='Group code for query, work only without key --query-sour and --query-dest', type=int)
 argparser.add_argument("-o", "--only", dest='only', help="Only create file for bulk interfaces ElasticSearch, without load", action='store_true')
 args = argparser.parse_args()
 
