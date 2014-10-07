@@ -79,18 +79,20 @@ ch.setLevel(logging.INFO)
 ch.setFormatter(formatter)
 logger.addHandler(ch)
 logger_elasticsearch = logging.getLogger('elasticsearch')
-logger_elasticsearch.addHandler(logging.NullHandler())
+logger_elasticsearch.addHandler(ch)
 if args.txt_log:
     fh = logging.handlers.TimedRotatingFileHandler(args.txt_log, encoding='utf-8', when='midnight', backupCount=7)
     fh.setLevel(logging.DEBUG)
     fh.setFormatter(formatter)
     logger.addHandler(fh)
+    logger_elasticsearch.addHandler(fh)
 if args.json_log:
     jh = logging.handlers.TimedRotatingFileHandler(args.json_log, encoding='utf-8', when='midnight', backupCount=7)
     jh.setLevel(logging.DEBUG)
     jformatter = JSONFormatter()
     jh.setFormatter(jformatter)
     logger.addHandler(jh)
+    logger_elasticsearch.addHandler(jh)
 logger.setLevel(logging.DEBUG)
 
 class SynchroStations(object):
