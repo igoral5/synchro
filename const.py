@@ -3,7 +3,7 @@
 '''Общие константы'''
 
 #Константа, словарь преобразования url в наименование региона
-name_region = {'moscow': u'Москва', 'podolsk': u'Подольск', 'sochi': u'Сочи', 'krasnoyarsk': u'Красноярск'}
+# name_region = {'moscow': u'Москва', 'podolsk': u'Подольск', 'sochi': u'Сочи', 'krasnoyarsk': u'Красноярск'}
 
 #Константа, справочник типов транспорта
 transport_type = {0: u'unknown', 1: u'bus', 2: u'trolleybus', 3: u'tram', 4: u'taxi', 6: u'metro', 7: u'aeroexpress' }
@@ -15,13 +15,33 @@ week_day = [u'понедельник', u'вторник', u'среда', u'че�
 week_day_en = [u'mon', u'tue', u'wed', u'thr', u'fri', u'sat', u'sun']
 
 #Константа, словарь преобразования url в имя индекса ElasticSearch
-name_index_es = {'moscow': u'region_moskva', 'podolsk': u'region_podolsk', 'sochi': u'region_sochi', 'krasnoyarsk': u'region_krasnoyarsk' }
+# name_index_es = {'moscow': u'region_moskva', 'podolsk': u'region_podolsk', 'sochi': u'region_sochi', 'krasnoyarsk': u'region_krasnoyarsk' }
 
 #Константа, словарь преобразования url в груповой код
-group_codes = {'podolsk': 46246000, 'sochi': 3000000, 'krasnoyarsk': 4000000, 'moscow': 45000000 }
+# group_codes = {'podolsk': 46246000, 'sochi': 3000000, 'krasnoyarsk': 4000000, 'moscow': 45000000 }
 
 #Константа, словарь преобразования url в имя проекции
-name_proj = {'podolsk': 'EPSG:32637', 'sochi': 'EPSG:32637', 'krasnoyarsk': 'EPSG:32646', 'moscow': 'EPSG:32637'}
+# name_proj = {'podolsk': 'EPSG:32637', 'sochi': 'EPSG:32637', 'krasnoyarsk': 'EPSG:32646', 'moscow': 'EPSG:32637'}
 
 #Константа, список всех url
-name_urls = ['moscow', 'podolsk', 'krasnoyarsk']
+# name_urls = ['moscow', 'podolsk', 'krasnoyarsk']
+
+#Значения по умолчанию для конфигурации
+defaults = {
+    'host': 'asip.office.transnavi.ru',
+    'user': 'asipguest',
+    'passwd': 'asipguest',
+    'num-try': 3,
+    'thread': 10,
+    'timeout': 30,
+    'format': 'xml',
+    'host-redis': 'localhost',
+    'port-redis': 6379,
+    'db-redis': 0,
+    'host-es': 'localhost',
+    'port-es': 9200,
+    'correct': False,
+    'distance': 30,
+    'create': True
+}
+

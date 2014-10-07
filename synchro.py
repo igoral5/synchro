@@ -29,27 +29,11 @@ import parsers
 util.conf_io()
 
 argparser = argparse.ArgumentParser(description='Synchro ElasticSearch use data TransNavigation.')
-argparser.add_argument("--host", dest='host', help='Hostname site TransNavigation, default asip.office.transnavi.ru', default='asip.office.transnavi.ru')
-argparser.add_argument("--url", dest='url', help='Path to script in site TransNavigation, default /podolsk', default='/podolsk')
-argparser.add_argument("--user", dest='user', help='User name for site TransNavigation, default asipguest', default='asipguest')
-argparser.add_argument("--passwd", dest='passwd', help='Password for site TransNavigation, default asipguest', default='asipguest')
-argparser.add_argument("--try", dest='num_try', help='Number of attempts to obtain data from site TransNavigation, default 3, if 0 the number of attempts is infinitely', type=int, default=3)
-argparser.add_argument("--thread", dest='max_thread', help="Maximum threads for downloading data, default 10", type=int, default=10)
-argparser.add_argument("--timeout", dest='timeout', help="Connection timeout for http connection, default 30 s", type=int, default=30)
-argparser.add_argument("--format", dest='format', help="Format of the information received, xml or csv, default xml", choices=['xml', 'csv'], default='xml')
-argparser.add_argument("--host-redis", dest='host_redis', help='Host name redis, default localhost', default='localhost')
-argparser.add_argument("--port-redis", dest='port_redis', help='Number port redis, default 6379', type=int, default=6379)
-argparser.add_argument("--db-redis", dest='db_redis', help='Number database redis, default 0', type=int, default=0)
-argparser.add_argument("--host-es", dest='host_es', help='Host name ElasticSearch, default localhost', default='localhost')
-argparser.add_argument("--port-es", dest='port_es', help='Number port ElasticSearch, default 9200', type=int, default=9200)
-argparser.add_argument("--log-txt", dest="txt_log", help="Name file text log")
-argparser.add_argument("--log-json", dest="json_log", help="Name file json log")
-argparser.add_argument("--correct", dest='correct_transport_type', help='Correct transport type 2->1, 3->1', action='store_true')
-argparser.add_argument("--distance", dest='distance', help="The maximum allowable distance from the stop to the geometry of the route, default 30 meters", type=int, default=30)
-argparser.add_argument("--create", dest='create_schedule', help='Create the missing schedule', action='store_true')
-argparser.add_argument("--only", dest='only', help='Create file for bulk interface ElasticSearch, without load', action='store_true')
+argparser.add_argument("-o", "--only", dest='only', help='Create file for bulk interface ElasticSearch, without load', action='store_true')
+argparser.add_argument("name", metavar='name', nargs=1, help='Names section in configuration and path to url')
 args = argparser.parse_args()
 
+conf = util.Configuration('synchro.conf', args.name[0])
 
 class JSONFormatter(logging.Formatter):
     '''Класс форматера для записи в формате JSON'''
@@ -72,7 +56,7 @@ class JSONFormatter(logging.Formatter):
             json_obj['marker'] = record.marker
         return json.dumps(json_obj, ensure_ascii=False)
 
-logger = logging.getLogger(u'synchro-%s' % args.url[1:])
+logger = logging.getLogger(u'synchro-%s' % conf.section)
 formatter = logging.Formatter(fmt='%(asctime)s %(levelname)-8s %(name)s %(message)s', datefmt="%Y-%m-%d %H:%M:%S %Z")
 ch = logging.StreamHandler()
 ch.setLevel(logging.INFO)
@@ -80,14 +64,14 @@ ch.setFormatter(formatter)
 logger.addHandler(ch)
 logger_elasticsearch = logging.getLogger('elasticsearch')
 logger_elasticsearch.addHandler(ch)
-if args.txt_log:
-    fh = logging.handlers.TimedRotatingFileHandler(args.txt_log, encoding='utf-8', when='midnight', backupCount=7)
+if conf.has_option('log-txt'):
+    fh = logging.handlers.TimedRotatingFileHandler(conf.get('log-txt'), encoding='utf-8', when='midnight', backupCount=7)
     fh.setLevel(logging.DEBUG)
     fh.setFormatter(formatter)
     logger.addHandler(fh)
     logger_elasticsearch.addHandler(fh)
-if args.json_log:
-    jh = logging.handlers.TimedRotatingFileHandler(args.json_log, encoding='utf-8', when='midnight', backupCount=7)
+if conf.has_option('log-json'):
+    jh = logging.handlers.TimedRotatingFileHandler(conf.get('log-json'), encoding='utf-8', when='midnight', backupCount=7)
     jh.setLevel(logging.DEBUG)
     jformatter = JSONFormatter()
     jh.setFormatter(jformatter)
@@ -102,22 +86,22 @@ class SynchroStations(object):
         self.lock = threading.Lock()
     
     def synchro(self):
-        self.checksum, self.change = util.check_table('tbstops', args, redis_client, logger=logger)
+        self.checksum, self.change = util.check_table('tbstops', conf, redis_client, logger=logger)
         if not args.only:
-            self.ids = util.get_local_ids(es_client, const.name_index_es[args.url[1:]], 'station', group_code)
+            self.ids = util.get_local_ids(es_client, conf.get('name-index'), 'station', group_code)
         else:
             self.ids = set()
             self.change = True
         self.process_stops()
     
     def process_stops(self):
-        if args.format == 'xml':
+        if conf.get('format') == 'xml':
             handler = parsers.StopsXMLParser()
             request = '/getStops.php'
         else:
             handler = parsers.StopsCSVParser()
             request = '/getStops.php?fmt=csv'
-        util.http_request(request, handler, args, logger=logger)
+        util.http_request(request, handler, conf, logger=logger)
         self.stations = handler.stations
         logger.debug(u'Получен список остановок')
     
@@ -142,18 +126,18 @@ class SynchroStations(object):
                 continue
             complex_id = station_tn['id']
             if complex_id in self.ids:
-                station_es = es_client.get(index=const.name_index_es[args.url[1:]], doc_type = 'station', id = complex_id)
+                station_es = es_client.get(index=conf.get('name-index'), doc_type = 'station', id = complex_id)
                 if station_es['_source'] != station_tn:
-                    meta = {'index': {'_index': const.name_index_es[args.url[1:]], '_type': 'station', '_id': complex_id}}
+                    meta = {'index': {'_index': conf.get('name-index'), '_type': 'station', '_id': complex_id}}
                     util.save_json_to_file(file_descriptor, meta, station_tn)
                     self.report_stations('update', st_id)
                 self.ids.discard(complex_id)
             else:
-                meta = {'index': {'_index': const.name_index_es[args.url[1:]], '_type': 'station', '_id': complex_id}}
+                meta = {'index': {'_index': conf.get('name-index'), '_type': 'station', '_id': complex_id}}
                 util.save_json_to_file(file_descriptor, meta, station_tn)
                 self.report_stations('insert', st_id)
         for complex_id in self.ids:
-            meta = {'delete': {'_index': const.name_index_es[args.url[1:]], '_type': 'station', '_id': complex_id}}
+            meta = {'delete': {'_index': conf.get('name-index'), '_type': 'station', '_id': complex_id}}
             util.save_json_to_file(file_descriptor, meta)
             st_id = int(complex_id.split(':')[-1])
             self.report_stations('delete', st_id)
@@ -173,7 +157,7 @@ class SynchroStations(object):
             ],
             'tags': tags,
             'name': self.stations[st_id]['name'],
-            'region': const.name_region[args.url[1:]]
+            'region': conf.get('name')
         }
         return station
     
@@ -195,7 +179,7 @@ class SynchroStations(object):
     
     def set_checksum(self):
         if self.checksum != None:
-            key = 'checksum:tn:%s:tbstops' % args.url[1:]
+            key = 'checksum:tn:%s:tbstops' % conf.section
             redis_client.set(key, self.checksum)
     
     def summary(self):
@@ -221,7 +205,7 @@ class SynchroRoutes(object):
         self.project = partial(
             pyproj.transform,
             pyproj.Proj(init='EPSG:4326'),
-            pyproj.Proj(init=const.name_proj[args.url[1:]]))
+            pyproj.Proj(init=conf.get('name-proj')))
     
     def del_route_id(self, doc_id):
         self.route_ids_lock.acquire()
@@ -242,9 +226,9 @@ class SynchroRoutes(object):
             
 
     def synchro(self, file_descriptor):
-        self.checksum, self.change = util.check_table('tbmarshes', args, redis_client, logger=logger)
+        self.checksum, self.change = util.check_table('tbmarshes', conf, redis_client, logger=logger)
         if not args.only:
-            self._route_ids = util.get_local_ids(es_client, const.name_index_es[args.url[1:]], 'route', group_code)
+            self._route_ids = util.get_local_ids(es_client, conf.get('name-index'), 'route', group_code)
         else:
             self._route_ids = set()
             self.change = True
@@ -252,7 +236,7 @@ class SynchroRoutes(object):
         self.process_marshvariants()
         self.process_raspvariants()
         change_checksum = False
-        threadpool = ThreadPool(args.max_thread)
+        threadpool = ThreadPool(conf.getint('thread'))
         total_marches = len(self.marshes)
         for i, mr_id in enumerate(self.marshes):
             if self.change or self.stations.change or self.change_marsh_variants(mr_id) or self.change_rasp_variants(mr_id):
@@ -265,7 +249,7 @@ class SynchroRoutes(object):
         threadpool.finish()
         self.stations.form_file(file_descriptor)
         for complex_id in self._route_ids:
-            meta = {'delete': {'_index': const.name_index_es[args.url[1:]], '_type': 'route', '_id': complex_id}}
+            meta = {'delete': {'_index': conf.get('name-index'), '_type': 'route', '_id': complex_id}}
             util.save_json_to_file(file_descriptor, meta)
             complex_id_split = complex_id.split(':')
             mr_id = int(complex_id_split[1])
@@ -275,35 +259,35 @@ class SynchroRoutes(object):
         return change_checksum
 
     def process_marshes(self):
-        if args.format == 'xml':
-            handler = parsers.MarshesXMLParser(set([1,2,3]), args.correct_transport_type, logger=logger)
+        if conf.get('format') == 'xml':
+            handler = parsers.MarshesXMLParser(set([1,2,3]), conf.getboolean('correct'), logger=logger)
             request = '/getMarshes.php'
         else:
-            handler = parsers.MarshesCSVParser(set([1,2,3]), args.correct_transport_type, logger=logger)
+            handler = parsers.MarshesCSVParser(set([1,2,3]), conf.getboolean('correct'), logger=logger)
             request = '/getMarshes.php?fmt=csv'
-        util.http_request(request, handler, args, logger=logger)
+        util.http_request(request, handler, conf, logger=logger)
         self.marshes = handler.marshes
         logger.debug(u'Получен список маршрутов')
 
     def process_marshvariants(self):
-        if args.format == 'xml':
-            handler = parsers.MarshVariantsXMLParser(current_time, redis_client, args.url[1:])
+        if conf.get('format') == 'xml':
+            handler = parsers.MarshVariantsXMLParser(current_time, redis_client, conf.section)
             request = '/getMarshVariants.php'
         else:
-            handler = parsers.MarshVariantsCSVParser(current_time, redis_client, args.url[1:])
+            handler = parsers.MarshVariantsCSVParser(current_time, redis_client, conf.section)
             request = '/getMarshVariants.php?fmt=csv'
-        util.http_request(request, handler, args, logger=logger)
+        util.http_request(request, handler, conf, logger=logger)
         self.marsh_variants = handler.marsh_variants
         logger.debug(u'Получен список вариантов маршрутов')
 
     def process_raspvariants(self):
-        if args.format == 'xml':
-            handler = parsers.RaspVariantsXMLParser(current_time, redis_client, args.url[1:])
+        if conf.get('format') == 'xml':
+            handler = parsers.RaspVariantsXMLParser(current_time, redis_client, conf.section)
             request = '/getRaspVariants.php'
         else:
-            handler = parsers.RaspVariantsCSVParser(current_time, redis_client, args.url[1:])
+            handler = parsers.RaspVariantsCSVParser(current_time, redis_client, conf.section)
             request = '/getRaspVariants.php?fmt=csv'
-        util.http_request(request, handler, args, logger=logger)
+        util.http_request(request, handler, conf, logger=logger)
         self.rasp_variants = handler.rasp_variants
         logger.debug(u'Получен список вариантов расписаний')
     
@@ -323,13 +307,13 @@ class SynchroRoutes(object):
     
     def local_process_marsh_variants(self, mr_id, file_descriptor):
         prefix = '%d:%d:' % (group_code, mr_id)
-        for hit in scan(es_client, {'query': {'prefix': { '_id': prefix }}}, '10m', index=const.name_index_es[args.url[1:]], doc_type='route'):
+        for hit in scan(es_client, {'query': {'prefix': { '_id': prefix }}}, '10m', index=conf.get('name-index'), doc_type='route'):
             complex_id = hit['_id']
             direction = int(complex_id.split(':')[-1])
             route_es = hit['_source']
             route = self.get_route_from_local(mr_id, direction, route_es)
             if route != route_es:
-                meta = {'index': {'_index': const.name_index_es[args.url[1:]], '_type': 'route', '_id': complex_id}}
+                meta = {'index': {'_index': conf.get('name-index'), '_type': 'route', '_id': complex_id}}
                 util.save_json_to_file(file_descriptor, meta, route)
                 report_description = u'%8s %-80s %s/%d/%d' % (route['name'], route['direction'], complex_id.split(':')[0], mr_id, direction)
                 self.report_changes('update', mr_id, direction, report_description)
@@ -348,7 +332,7 @@ class SynchroRoutes(object):
             'id': doc_id,
             'name': name,
             'direction': name_direction,
-            'region': const.name_region[args.url[1:]],
+            'region': conf.get('name'),
             'transport': self.marshes[mr_id]['transport'],
             'stations': route_es['stations'],
             'geometry': route_es['geometry'],
@@ -367,19 +351,19 @@ class SynchroRoutes(object):
     def set_checksum(self):
         self.stations.set_checksum()
         if self.checksum:
-            key = 'checksum:tn:%s:tbmarshes' % args.url[1:]
+            key = 'checksum:tn:%s:tbmarshes' % conf.section
             redis_client.set(key, self.checksum)
-        for key in redis_client.keys('checksum:tn:%s:marshvariants:*' % args.url[1:]):
+        for key in redis_client.keys('checksum:tn:%s:marshvariants:*' % conf.section):
             redis_client.delete(key)
-        for key in redis_client.keys('checksum:tn:%s:raspvariants:*' % args.url[1:]):
+        for key in redis_client.keys('checksum:tn:%s:raspvariants:*' % conf.section):
             redis_client.delete(key)
         for mr_id in self.marshes:
             for mv_id in self.marsh_variants[mr_id]:
-                key = 'checksum:tn:%s:marshvariants:%d:%d' % (args.url[1:], mr_id, mv_id)
+                key = 'checksum:tn:%s:marshvariants:%d:%d' % (conf.section, mr_id, mv_id)
                 redis_client.set(key, self.marsh_variants[mr_id][mv_id]['checksum'])
             for (srv_id, rv_id) in self.rasp_variants[mr_id]:
                 if 'created' not in self.rasp_variants[mr_id][(srv_id, rv_id)]:
-                    key = 'checksum:tn:%s:raspvariants:%d:%d:%d' % (args.url[1:], mr_id, srv_id, rv_id)
+                    key = 'checksum:tn:%s:raspvariants:%d:%d:%d' % (conf.section, mr_id, srv_id, rv_id)
                     redis_client.set(key, self.rasp_variants[mr_id][srv_id, rv_id]['checksum'])
     
     def report_changes(self,operation, mr_id, direction, description):
@@ -439,11 +423,11 @@ class SynchroRoutes(object):
                         redis_client.expire(key, 30 * 24 * 60 * 60) # key dead after 30 days
         for mr_id in self.report['routes']['del']:
             for direction in self.report['routes']['del'][mr_id]:
-                key = 'report_info:tn:routes:%s:%d:%d:%d' % (args.url[1:], group_code, mr_id, direction)
+                key = 'report_info:tn:routes:%s:%d:%d:%d' % (conf.section, group_code, mr_id, direction)
                 redis_client.delete(key)
         for mr_id in self.report['routes']['add']:
             for direction in self.report['routes']['add'][mr_id]:
-                key = 'report_info:tn:routes:%s:%d:%d:%d' % (args.url[1:], group_code, mr_id, direction)
+                key = 'report_info:tn:routes:%s:%d:%d:%d' % (conf.section, group_code, mr_id, direction)
                 if redis_client.exists(key):
                     redis_client.delete(key)
                 redis_client.rpush(key, int(self.report['routes']['add'][mr_id][direction]['loaded']), int(self.report['routes']['add'][mr_id][direction]['validate_schedule']), int(self.report['routes']['add'][mr_id][direction]['validate_geometry']), int(self.report['routes']['add'][mr_id][direction]['generate_schedule']))
@@ -453,7 +437,7 @@ class SynchroRoutes(object):
         okato = complex_id_split[0]
         mr_id = int(complex_id_split[1])
         direction = int(complex_id_split[2])
-        route_es = es_client.get(index = const.name_index_es[args.url[1:]], doc_type = 'route', id = complex_id)
+        route_es = es_client.get(index = conf.get('name-index'), doc_type = 'route', id = complex_id)
         name_direction = route_es['_source']['direction']
         if 'time_ext' in route_es:
             name_direction = name_direction + ' (' + route_es['time_ext'] + u')'
@@ -519,7 +503,7 @@ class RouteExtra(threading.Thread):
         self.marshes = marshes
         self.mr_id = mr_id
         self.file_descriptor = file_descriptor
-        self.es_client = Elasticsearch([{'host': args.host_es, 'port': args.port_es}])
+        self.es_client = Elasticsearch([{'host': conf.get('host-es'), 'port': conf.getint('port-es')}])
         self.rasp_time = util.tree()
 
     def run(self):
@@ -535,36 +519,36 @@ class RouteExtra(threading.Thread):
             os.kill(os.getpid(), signal.SIGTERM)
     
     def process_racecard(self, mv_id):
-        if args.format == 'xml':
+        if conf.get('format') == 'xml':
             handler = parsers.RaceCardXMLParser()
             request = '/getRaceCard.php?mv_id=%d' % mv_id
         else:
             handler = parsers.RaceCardCSVParser()
             request = '/getRaceCard.php?mv_id=%d&fmt=csv' % mv_id
-        util.http_request(request, handler, args, logger=logger)
+        util.http_request(request, handler, conf, logger=logger)
         self.race_card = handler.race_card
         logger.debug(u'Скачена последовательность остановок для маршрута mr_id=%d, mv_id=%d, %s %s' % (self.mr_id, mv_id, self.marshes.marshes[self.mr_id]['name'], self.marshes.marshes[self.mr_id]['description']))
     
     def process_racecoord(self, mv_id):
-        if args.format == 'xml':
+        if conf.get('format') == 'xml':
             handler = parsers.RaceCoordXMLParser()
             request = '/getRaceCoord.php?mv_id=%d' % mv_id
         else:
             handler = parsers.RaceCoordCSVParser()
             request = '/getRaceCoord.php?mv_id=%d&fmt=csv' % mv_id
-        util.http_request(request, handler, args, logger=logger)
+        util.http_request(request, handler, conf, logger=logger)
         self.race_coord = handler.race_coord
         logger.debug(u'Скачена геометрия для маршрута mr_id=%d, mv_id=%d, %s %s' % (self.mr_id, mv_id, self.marshes.marshes[self.mr_id]['name'], self.marshes.marshes[self.mr_id]['description']))
     
     def process_rasptime(self, srv_id, rv_id):
         if hasattr(self, 'race_card'):
-            if args.format == 'xml':
+            if conf.get('format') == 'xml':
                 handler = parsers.RaspTimeXMLParser(srv_id, rv_id, self.race_card, logger=logger)
                 request = '/getRaspTime.php?srv_id=%d&rv_id=%d' % (srv_id, rv_id)
             else:
                 handler = parsers.RaspTimeCSVParser(srv_id, rv_id, self.race_card, logger=logger)
                 request = '/getRaspTime.php?srv_id=%d&rv_id=%d&fmt=csv' % (srv_id, rv_id)
-            util.http_request(request, handler, args, logger=logger)
+            util.http_request(request, handler, conf, logger=logger)
             self.rasp_time[(srv_id, rv_id)] = handler.rasp_time
             logger.debug(u'Скачены расписания для маршрута mr_id=%d, srv_id=%d, rv_id=%d, %s %s' % (self.mr_id, srv_id, rv_id, self.marshes.marshes[self.mr_id]['name'], self.marshes.marshes[self.mr_id]['description']))
     
@@ -620,14 +604,14 @@ class RouteExtra(threading.Thread):
         route = self.create_route(direction)
         complex_id = route['id']
         if self.marshes.present_route_id(complex_id):
-            route_es = self.es_client.get(index = const.name_index_es[args.url[1:]], doc_type = 'route', id = complex_id)
+            route_es = self.es_client.get(index = conf.get('name-index'), doc_type = 'route', id = complex_id)
             if route_es['_source'] != route:
-                meta = {'index': {'_index': const.name_index_es[args.url[1:]], '_type': 'route', '_id': complex_id}}
+                meta = {'index': {'_index': conf.get('name-index'), '_type': 'route', '_id': complex_id}}
                 util.save_json_to_file(self.file_descriptor, meta, route)
                 self.marshes.report_changes('update', self.mr_id, direction, self.report_description_route(direction))
             self.marshes.del_route_id(complex_id)
         else:
-            meta = {'index': {'_index': const.name_index_es[args.url[1:]], '_type': 'route', '_id': complex_id}}
+            meta = {'index': {'_index': conf.get('name-index'), '_type': 'route', '_id': complex_id}}
             util.save_json_to_file(self.file_descriptor, meta, route)
             self.marshes.report_changes('insert', self.mr_id, direction, self.report_description_route(direction))
 
@@ -649,7 +633,7 @@ class RouteExtra(threading.Thread):
             'id': doc_id,
             'name': name,
             'direction': name_direction,
-            'region': const.name_region[args.url[1:]],
+            'region': conf.get('name'),
             'transport': self.marshes.marshes[self.mr_id]['transport'],
             'stations': stations,
             'geometry': geometry,
@@ -751,7 +735,7 @@ class RouteExtra(threading.Thread):
                 point = Point(lng, lat)
                 point_proj = transform(self.marshes.project, point)
                 distance = line_proj.distance(point_proj)
-                if distance > args.distance:
+                if distance > conf.getfloat('distance'):
                     logger.info(u'На маршруте %s %s mr_id=%d, направление %s остановка %s st_id=%d не лежит на геометрии маршрута, расстояние до ближайшей точки маршрута %f метров' % (self.marshes.marshes[self.mr_id]['name'], self.marshes.marshes[self.mr_id]['description'], self.mr_id, chr(direction + ord('A')), self.marshes.stations.get_station(st_id)['name'], st_id, distance))
                     return False
         return True
@@ -759,7 +743,7 @@ class RouteExtra(threading.Thread):
     def validate_rasptime(self, direction):
         if len(self.rasp_time) == 0:
             logger.info(u'На маршруте %s %s mr_id=%d полностью отсутствует расписание' % (self.marshes.marshes[self.mr_id]['name'], self.marshes.marshes[self.mr_id]['description'], self.mr_id))
-            if args.create_schedule:
+            if conf.getboolean('create'):
                 if self.check_enable_create_schedule(None, -1, -1):
                     logger.info(u'Создано расписание для маршрута %s %s mr_id=%d' % (self.marshes.marshes[self.mr_id]['name'], self.marshes.marshes[self.mr_id]['description'], self.mr_id))
                 else:
@@ -773,7 +757,7 @@ class RouteExtra(threading.Thread):
         for (srv_id, rv_id) in self.rasp_time:
             if self.empty_schedule_in_direction(srv_id, rv_id, direction):
                 logger.info(u'В варианте расписания (srv_id=%d, rv_id=%d) маршрута %s %s mr_id=%d отсутствует направление %s' % (srv_id, rv_id, self.marshes.marshes[self.mr_id]['name'], self.marshes.marshes[self.mr_id]['description'], self.mr_id, chr(direction + ord('A'))))
-                if args.create_schedule:
+                if conf.getboolean('create'):
                     if self.check_enable_create_schedule(direction, srv_id, rv_id):
                         logger.info(u'Создано расписание (srv_id=%d, rv_id=%d) для маршрута %s %s mr_id=%d направления %s' % (srv_id, rv_id, self.marshes.marshes[self.mr_id]['name'], self.marshes.marshes[self.mr_id]['description'], self.mr_id, chr(direction + ord('A'))))
                     else:
@@ -825,7 +809,7 @@ class RouteExtra(threading.Thread):
 
     def check_enable_create_schedule(self, direction, srv_id, rv_id):
         if direction != None:
-            value = redis_client.get('enable_create_schedule:tn:%s:%d:%d' % (args.url[1:], self.mr_id, direction))
+            value = redis_client.get('enable_create_schedule:tn:%s:%d:%d' % (conf.section, self.mr_id, direction))
             if value:
                 self.create_schedule(direction, srv_id, rv_id, value)
                 return True
@@ -835,12 +819,12 @@ class RouteExtra(threading.Thread):
             return self.check_enable_create_schedule_im(direction, srv_id, rv_id)
 
     def check_enable_create_schedule_im(self, direction, srv_id, rv_id):
-        value = redis_client.get('enable_create_schedule:tn:%s:%d:-' % (args.url[1:], self.mr_id ))
+        value = redis_client.get('enable_create_schedule:tn:%s:%d:-' % (conf.section, self.mr_id ))
         if value:
             self.create_schedule(direction, srv_id, rv_id, value)
             return True
         else:
-            value = redis_client.get('enable_create_schedule:tn:%s:-:-' % args.url[1:])
+            value = redis_client.get('enable_create_schedule:tn:%s:-:-' % conf.section)
             if value:
                 self.create_schedule(direction, srv_id, rv_id, value)
                 return True
@@ -906,12 +890,12 @@ class RouteExtra(threading.Thread):
 
 try:
     current_time = time.time()
-    group_code = const.group_codes[args.url[1:]]
-    redis_client = redis.StrictRedis( host = args.host_redis, port = args.port_redis, db = args.db_redis )
-    es_client = Elasticsearch([{'host': args.host_es, 'port': args.port_es}])
-    socket.setdefaulttimeout(args.timeout)
+    group_code = conf.getint('group-code')
+    redis_client = redis.StrictRedis( host = conf.get('host-redis'), port = conf.getint('port-redis'), db = conf.getint('db-redis'))
+    es_client = Elasticsearch([{'host': conf.get('host-es'), 'port': conf.getint('port-es')}])
+    socket.setdefaulttimeout(conf.getfloat('timeout'))
     synchro_routes = SynchroRoutes()
-    name_file = 'elasticsearch/%s_%s.json' % (args.url[1:], time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(current_time)))
+    name_file = 'elasticsearch/%s_%s.json' % (conf.section, time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(current_time)))
     f = codecs.open(name_file, "w", encoding="utf-8")
     change_checksum = synchro_routes.synchro(f)
     f.close()
@@ -923,7 +907,7 @@ try:
     statinfo = os.stat(name_file)
     if statinfo.st_size > 0:
         logger.info(u'Загрузка обновлений в ElasticSearch')
-        ret = os.system('curl -S -XPOST "http://%s:%d/_bulk" --data-binary @%s > /dev/null 2>&1' % (args.host_es, args.port_es, name_file))
+        ret = os.system('curl -S -XPOST "http://%s:%d/_bulk" --data-binary @%s > /dev/null 2>&1' % (conf.get('host-es'), conf.get('port-es'), name_file))
         if ret == 0:
             logger.info(u'Обновление контрольных сумм, после успешного обновления ElasticSearch')
             synchro_routes.set_checksum()
@@ -939,7 +923,7 @@ try:
         if change_checksum:
             synchro_routes.set_checksum()
         logger.debug(u'Изменений не обнаружено, выполнено за %.1f сек.' % (time.time() - current_time), extra={'marker': 'nagios'})
-    util.delete_old_files('elasticsearch/%s_*.json' % args.url[1:], 7, current_time, logger=logger)
+    util.delete_old_files('elasticsearch/%s_*.json' % conf.section, 7, current_time, logger=logger)
 except Exception, e:
     logger.exception(e, extra={'marker': 'nagios'})
 

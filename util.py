@@ -22,6 +22,8 @@ import codecs
 import locale
 import re
 import tempfile
+import ConfigParser
+import const
 
 def tree():
     return collections.defaultdict(tree)
@@ -37,17 +39,17 @@ def save_json_to_file(file_descriptor, meta, body=None):
     finally:
         file_lock.release()
     
-def http_request(request, handler, args, logger=None):
+def http_request(request, handler, conf, logger=None):
     '''Выполняет HTTP запрос'''
     n = 1
     while True:
         try:
             try:
-                webservice = httplib.HTTP(args.host)
-                webservice.putrequest('GET', args.url + request)
-                webservice.putheader('Host', args.host)
-                if hasattr(args, 'user') and hasattr(args, 'passwd'):
-                    auth = base64.encodestring('%s:%s' % (args.user, args.passwd)).replace('\n', '')
+                webservice = httplib.HTTP(conf.get('host'))
+                webservice.putrequest('GET', conf.section + '/' + request)
+                webservice.putheader('Host', conf.get('host'))
+                if conf.has_option('user') and conf.has_option('passwd'):
+                    auth = base64.encodestring('%s:%s' % (conf.get('user'), conf.get('passwd'))).replace('\n', '')
                     webservice.putheader('Authorization', 'Basic %s' % auth)
                 webservice.putheader('Accept-Encoding', 'gzip, deflate')
                 webservice.endheaders()
@@ -64,13 +66,13 @@ def http_request(request, handler, args, logger=None):
                 else:
                     raise RuntimeError(u'%d %s' % (statuscode, statusmessage ))
             except (RuntimeError, socket.timeout), e:
-                message = u'[http://%s%s try:%d] %s' % (args.host, args.url + request, n, str(e))
+                message = u'[http://%s%s try:%d] %s' % (conf.get('host'), conf.section+ '/' + request, n, str(e))
                 if type(e) == RuntimeError:
                     raise RuntimeError(message)
                 else:
                     raise socket.timeout(message)
         except Exception, e:
-            if n == args.num_try:
+            if n == conf.get('num-try'):
                 raise
             if logger:
                 logger.exception(e)
@@ -99,18 +101,18 @@ def delete_old_files(mask, days_delta, current_time, logger=None):
             if logger:
                 logger.info(u'Удален старый файл %s' % os.path.basename(name_file))
 
-def check_table(name_table, args, redis_client=None, logger=None):
-    if args.format == 'xml':
+def check_table(name_table, conf, redis_client=None, logger=None):
+    if conf.get('format') == 'xml':
         handler = parsers.CheckSumXMLParser()
         request = '/getChecksum.php?cs_tablename=%s' % name_table
     else:
         handler = parsers.CheckSumCSVParser()
         request =  '/getChecksum.php?cs_tablename=%s&fmt=csv' % name_table
-    http_request(request, handler, args, logger=logger)
+    http_request(request, handler, conf, logger=logger)
     if name_table in handler.checksum:
         checksum_new = handler.checksum[name_table]
         if redis_client:
-            key = 'checksum:tn:%s:%s' % (args.url[1:], name_table)
+            key = 'checksum:tn:%s:%s' % (conf.section, name_table)
             checksum_old = redis_client.get(key)
             if checksum_old:
                 if checksum_new != int(checksum_old):
@@ -273,3 +275,32 @@ class TwoTmpFiles(object):
         os.unlink(self.file1.name)
         os.unlink(self.file2.name)
 
+class Configuration(object):
+    '''Класс конфигурации'''
+    def __init__(self, name_file, section):
+        fp = codecs.open(name_file, 'r', encoding='utf-8')
+        self.conf = ConfigParser.RawConfigParser(defaults=const.defaults)
+        self.conf.readfp(fp, name_file)
+        fp.close()
+        if not self.conf.has_section(section):
+            raise RuntimeError(u'Section %s not found in %s' % (section, name_file))
+        self.section = section
+
+    def get(self, option):
+        return self.conf.get(self.section, option)
+    
+    def getboolean(self, option):
+        return self.conf.getboolean(self.section, option)
+    
+    def getfloat(self, option):
+        return self.conf.getfloat(self.section, option)
+    
+    def getint(self, option):
+        return self.conf.getint(self.section, option)
+    
+    def sections(self):
+        return self.conf.sections()
+    
+    def has_option(self, option):
+        return self.conf.has_option(self.section, option)
+    
