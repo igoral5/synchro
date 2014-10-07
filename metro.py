@@ -11,18 +11,13 @@ import json
 import logging
 import util
 import parsers
-import const
 
 util.conf_io()
 
+conf = util.Configuration('synchro.conf')
+conf.set_section('moscow')
+
 argparser = argparse.ArgumentParser(description='Add routes metro in ElasticSearch.')
-argparser.add_argument("--host", dest='host', help='Hostname site TransNavigation, default asip.office.transnavi.ru', default='asip.office.transnavi.ru')
-argparser.add_argument("--url", dest='url', help='Path to script in site TransNavigation, default /podolsk', default='/podolsk')
-argparser.add_argument("--user", dest='user', help='User name for site TransNavigation, default asipguest', default='asipguest')
-argparser.add_argument("--passwd", dest='passwd', help='Password for site TransNavigation, default asipguest', default='asipguest')
-argparser.add_argument("--try", dest='num_try', help='Number of attempts to obtain data from site TransNavigation, default 3, if 0 the number of attempts is infinitely', type=int, default=3)
-argparser.add_argument("--host-es", dest='host_es', help='Host name ElasticSearch, default localhost', default='localhost')
-argparser.add_argument("--port-es", dest='port_es', help='Number port ElasticSearch, default 9200', type=int, default=9200)
 argparser.add_argument("--only", dest='only_create', help='Only create file, without loading into ElasticSearch', action='store_true')
 argparser.add_argument("json_metro", metavar='json_metro', nargs=1, help='Names file with description routes metro')
 args = argparser.parse_args()
@@ -53,7 +48,7 @@ class SynchroStations:
     
     def process_stops(self):
         handler = parsers.StopsXMLParser()
-        util.http_request('/getStops.php', handler, args, logger=logger)
+        util.http_request('/getStops.php', handler, conf, logger=logger)
         self.stations = handler.stations
         for item in self.json['add_stations']:
             self.stations[item['id']] = {'name': item['name'], 'location': {'lat': item['lat'], 'long': item['long'] }, 'tags': set() }
@@ -74,7 +69,7 @@ class SynchroStations:
             if station_tn == None:
                 continue
             complex_id = station_tn['id']
-            meta = {'index': {'_index': const.name_index_es[args.url[1:]], '_type': 'station', '_id': complex_id}}
+            meta = {'index': {'_index': conf.get('name-index'), '_type': 'station', '_id': complex_id}}
             util.save_json_to_file(file_descriptor, meta, station_tn)
 
     def get_json(self, st_id):
@@ -102,7 +97,7 @@ class SynchroStations:
                 }
             ],
             'name': self.stations[st_id]['name'],
-            'region': const.name_region[args.url[1:]]
+            'region': conf.get('name')
         }
         if st_id in self.transfer:
             transfer = []
@@ -141,17 +136,17 @@ class SynchroRoutes:
     
     def process_marshes(self):
         handler = parsers.MarshesXMLParser(set([6]), logger=logger)
-        util.http_request('/getMarshes.php', handler, args, logger=logger)
+        util.http_request('/getMarshes.php', handler, conf, logger=logger)
         self.marshes = handler.marshes
     
     def process_marshvariants(self):
         handler = parsers.MarshVariantsXMLParser(current_time)
-        util.http_request('/getMarshVariants.php', handler, args, logger=logger)
+        util.http_request('/getMarshVariants.php', handler, conf, logger=logger)
         self.marsh_variants = handler.marsh_variants
     
     def process_racecard(self, mr_id, mv_id):
         handler = parsers.RaceCardXMLParser()
-        util.http_request('/getRaceCard.php?mv_id=%d' % mv_id, handler, args, logger=logger)
+        util.http_request('/getRaceCard.php?mv_id=%d' % mv_id, handler, conf, logger=logger)
         self.route['race_card'] = handler.race_card
         for item in self.json['add_racecard']:
             if mr_id == item['mr_id']:
@@ -162,7 +157,7 @@ class SynchroRoutes:
     
     def process_racecoord(self, mv_id):
         handler = parsers.RaceCoordXMLParser()
-        util.http_request('/getRaceCoord.php?mv_id=%d' % mv_id, handler, args, logger=logger)
+        util.http_request('/getRaceCoord.php?mv_id=%d' % mv_id, handler, conf, logger=logger)
         self.route['race_coord'] = handler.race_coord
     
     def create_route(self, mr_id, direction):
@@ -184,7 +179,7 @@ class SynchroRoutes:
             'id': _id,
             'name': name,
             'direction': self.marshes_json[mr_id]['name'],
-            'region': const.name_region[args.url[1:]],
+            'region': conf.get('name'),
             'transport': self.marshes[mr_id]['transport'],
             'stations': stations,
             'valid': True,
@@ -204,7 +199,7 @@ class SynchroRoutes:
     def form_route(self, mr_id, direction, file_descriptor):
         route = self.create_route(mr_id, direction)
         complex_id = route['id']
-        meta = {'index': {'_index': const.name_index_es[args.url[1:]], '_type': 'route', '_id': complex_id}}
+        meta = {'index': {'_index': conf.get('name-index'), '_type': 'route', '_id': complex_id}}
         util.save_json_to_file(file_descriptor, meta, route)
 
 current_time = time.time()
@@ -212,10 +207,10 @@ group_code = 8002
 name_file = 'metro.json'
 f = codecs.open(name_file, "w", encoding="utf-8")
 if not args.only_create:
-    es_client = Elasticsearch([{'host': args.host_es, 'port': args.port_es}])
-    util.delete_old_doc(es_client, 'region_moskva', 'route', group_code, f)
-    util.delete_old_doc(es_client, 'region_moskva', 'geometry', group_code, f)
-    util.delete_old_doc(es_client, 'region_moskva', 'station', group_code, f)
+    es_client = Elasticsearch([{'host': conf.get('host-es'), 'port': conf.getint('port-es')}])
+    util.delete_old_doc(es_client, conf.get('name-index'), 'route', group_code, f)
+    util.delete_old_doc(es_client, conf.get('name-index'), 'geometry', group_code, f)
+    util.delete_old_doc(es_client, conf.get('name-index'), 'station', group_code, f)
 file_metro = codecs.open(args.json_metro[0], 'r', encoding='utf-8')
 metro_json = json.load(file_metro)
 file_metro.close()
@@ -225,4 +220,4 @@ synchro_routes = SynchroRoutes(synchro_stations, metro_json)
 synchro_routes.synchro(f)
 f.close()
 if not args.only_create:
-    os.system('curl -S -XPOST "http://%s:%d/_bulk" --data-binary @%s' % (args.host_es, args.port_es, name_file))
+    os.system('curl -S -XPOST "http://%s:%d/_bulk" --data-binary @%s' % (conf.get('host-es'), conf.getint('port-es'), name_file))

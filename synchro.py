@@ -28,12 +28,14 @@ import parsers
 
 util.conf_io()
 
+conf = util.Configuration('synchro.conf')
+
 argparser = argparse.ArgumentParser(description='Synchro ElasticSearch use data TransNavigation.')
 argparser.add_argument("-o", "--only", dest='only', help='Create file for bulk interface ElasticSearch, without load', action='store_true')
-argparser.add_argument("name", metavar='name', nargs=1, help='Names section in configuration and path to url')
+argparser.add_argument("name", metavar='name', nargs=1, help='Names section in configuration and path to url', choices=conf.sections())
 args = argparser.parse_args()
 
-conf = util.Configuration('synchro.conf', args.name[0])
+conf.set_section(args.name[0])
 
 class JSONFormatter(logging.Formatter):
     '''Класс форматера для записи в формате JSON'''
@@ -907,7 +909,7 @@ try:
     statinfo = os.stat(name_file)
     if statinfo.st_size > 0:
         logger.info(u'Загрузка обновлений в ElasticSearch')
-        ret = os.system('curl -S -XPOST "http://%s:%d/_bulk" --data-binary @%s > /dev/null 2>&1' % (conf.get('host-es'), conf.get('port-es'), name_file))
+        ret = os.system('curl -S -XPOST "http://%s:%d/_bulk" --data-binary @%s > /dev/null 2>&1' % (conf.get('host-es'), conf.getint('port-es'), name_file))
         if ret == 0:
             logger.info(u'Обновление контрольных сумм, после успешного обновления ElasticSearch')
             synchro_routes.set_checksum()

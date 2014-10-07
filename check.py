@@ -8,10 +8,11 @@ from elasticsearch import Elasticsearch
 from elasticsearch.helpers import scan
 import collections
 import logging
-import const
 import util
 
 util.conf_io()
+
+conf = util.Configuration('sysnchro.conf')
 
 parser = argparse.ArgumentParser(description='Check telemetry and routes information.')
 parser.add_argument("--host-redis", dest='host_redis', help='Host name redis, default localhost', default='localhost')
@@ -19,7 +20,7 @@ parser.add_argument("--port-redis", dest='port_redis', help='Number port redis, 
 parser.add_argument("--db-redis", dest='db_redis', help='Number database redis, default 0', type=int, default=0)
 parser.add_argument("--host-es", dest='host_es', help='Host name ElasticSearch, default localhost', default='localhost')
 parser.add_argument("--port-es", dest='port_es', help='Number port ElasticSearch, default 9200', type=int, default=9200)
-parser.add_argument("--only", dest='region', help="Make a report, only the specified region", choices=const.name_urls)
+parser.add_argument("--only", dest='region', help="Make a report, only the specified region", choices=conf.sections())
 parser.add_argument("--list", dest='full_report', help='Out full list directions', action='store_true')
 args = parser.parse_args()
 
@@ -62,13 +63,14 @@ def list_routes(group_code, route_count_transport):
 
 def main():
     if args.region:
-        regions = [{'name': const.name_region[args.region], 'group_code': const.group_codes[args.region]}]
-        name_index = const.name_index_es[args.region]
-        query_telemetry = 'telemetry:tn:%d:*' % const.group_codes[args.region]
+        conf.set_section(args.region)
+        regions = [{'name': conf.get('name'), 'group_code': conf.getint('group-code')}]
+        name_index = conf.get('name-index')
+        query_telemetry = 'telemetry:tn:%d:*' % conf.getint('group-code')
     else:
         regions =[]
-        for region in const.name_urls:
-            regions.append({'name': const.name_region[region], 'group_code': const.group_codes[region]})
+        for region in conf.sections():
+            regions.append({'name': conf.conf.get(region, 'name'), 'group_code': conf.conf.getint(region, 'group-code')})
         name_index = 'region_*'
         query_telemetry = 'telemetry:tn:*'
     route_count_transport = collections.defaultdict(int)

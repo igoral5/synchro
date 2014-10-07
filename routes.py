@@ -9,9 +9,10 @@ from elasticsearch import Elasticsearch
 from elasticsearch.helpers import scan
 import logging
 import util
-import const
 
 util.conf_io()
+
+conf = util.Configuration('synchro.conf')
 
 parser = argparse.ArgumentParser(description='Report on the state routes and telemetry.')
 parser.add_argument("--host-redis", dest='host_redis', help='Host name redis, default localhost', default='localhost')
@@ -19,7 +20,7 @@ parser.add_argument("--port-redis", dest='port_redis', help='Number port redis, 
 parser.add_argument("--db-redis", dest='db_redis', help='Number database redis, default 0', type=int, default=0)
 parser.add_argument("--host-es", dest='host_es', help='Host name ElasticSearch, default localhost', default='localhost')
 parser.add_argument("--port-es", dest='port_es', help='Number port ElasticSearch, default 9200', type=int, default=9200)
-parser.add_argument("--only", dest='region', help="Make a report, only the specified region", choices=const.name_urls)
+parser.add_argument("--only", dest='region', help="Make a report, only the specified region", choices=conf.sections())
 args = parser.parse_args()
 
 logger = logging.getLogger('elasticsearch')
@@ -27,17 +28,18 @@ logger.addHandler(logging.NullHandler())
 
 route_count = util.tree()
 
-redis_client = redis.StrictRedis( host = args.host_redis, port = args.port_redis, db = args.db_redis )
+redis_client = redis.StrictRedis( host = conf.host_redis, port = args.port_redis, db = args.db_redis )
 es_client = Elasticsearch([{'host': args.host_es, 'port': args.port_es}])
 
 if args.region:
-    regions = [{'name': args.region, 'index': const.name_index_es[args.region], 'group_code': const.group_codes[args.region]}]
-    query_telemetry = 'telemetry:tn:%d:*' % const.group_codes[args.region]
-    query_prediction = 'prediction:tn:route:%d:*' % const.group_codes[args.region]
+    conf.set_section(args.region)
+    regions = [{'name': conf.section, 'index': conf.get('name-index'), 'group_code': conf.getint('group-code')}]
+    query_telemetry = 'telemetry:tn:%d:*' % conf.getint('group-code')
+    query_prediction = 'prediction:tn:route:%d:*' % conf.getint('group-code')
 else:
     regions =[]
-    for region in const.name_urls:
-        regions.append({'name': region, 'index': const.name_index_es[region], 'group_code': const.group_codes[region]})
+    for region in conf.sections():
+        regions.append({'name': region, 'index': conf.conf.get(region, 'name-index'), 'group_code': conf.conf.getint(region, 'group-code')})
     query_telemetry = 'telemetry:tn:*'
     query_prediction = 'prediction:tn:route:*'
 
@@ -101,7 +103,7 @@ for item in regions:
         
 remark = []
 for region in route_count:
-    print const.name_region[region]
+    print conf.conf.get(region, 'name') 
     print
     print u'Всего направлений                              %5d' % route_count[region]['all']
     print u'  Из них загружено в базу                      %5d' % route_count[region]['loaded']

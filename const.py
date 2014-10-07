@@ -26,22 +26,4 @@ week_day_en = [u'mon', u'tue', u'wed', u'thr', u'fri', u'sat', u'sun']
 #Константа, список всех url
 # name_urls = ['moscow', 'podolsk', 'krasnoyarsk']
 
-#Значения по умолчанию для конфигурации
-defaults = {
-    'host': 'asip.office.transnavi.ru',
-    'user': 'asipguest',
-    'passwd': 'asipguest',
-    'num-try': 3,
-    'thread': 10,
-    'timeout': 30,
-    'format': 'xml',
-    'host-redis': 'localhost',
-    'port-redis': 6379,
-    'db-redis': 0,
-    'host-es': 'localhost',
-    'port-es': 9200,
-    'correct': False,
-    'distance': 30,
-    'create': True
-}
 

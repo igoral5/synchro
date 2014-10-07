@@ -23,7 +23,6 @@ import locale
 import re
 import tempfile
 import ConfigParser
-import const
 
 def tree():
     return collections.defaultdict(tree)
@@ -46,7 +45,7 @@ def http_request(request, handler, conf, logger=None):
         try:
             try:
                 webservice = httplib.HTTP(conf.get('host'))
-                webservice.putrequest('GET', conf.section + '/' + request)
+                webservice.putrequest('GET', '/' + conf.section + request)
                 webservice.putheader('Host', conf.get('host'))
                 if conf.has_option('user') and conf.has_option('passwd'):
                     auth = base64.encodestring('%s:%s' % (conf.get('user'), conf.get('passwd'))).replace('\n', '')
@@ -66,7 +65,7 @@ def http_request(request, handler, conf, logger=None):
                 else:
                     raise RuntimeError(u'%d %s' % (statuscode, statusmessage ))
             except (RuntimeError, socket.timeout), e:
-                message = u'[http://%s%s try:%d] %s' % (conf.get('host'), conf.section+ '/' + request, n, str(e))
+                message = u'[http://%s/%s try:%d] %s' % (conf.get('host'), conf.section + request, n, str(e))
                 if type(e) == RuntimeError:
                     raise RuntimeError(message)
                 else:
@@ -277,15 +276,18 @@ class TwoTmpFiles(object):
 
 class Configuration(object):
     '''Класс конфигурации'''
-    def __init__(self, name_file, section):
+    def __init__(self, name_file):
         fp = codecs.open(name_file, 'r', encoding='utf-8')
-        self.conf = ConfigParser.RawConfigParser(defaults=const.defaults)
+        self.conf = ConfigParser.ConfigParser()
         self.conf.readfp(fp, name_file)
         fp.close()
+        self.name_file = name_file
+    
+    def set_section(self, section):
         if not self.conf.has_section(section):
-            raise RuntimeError(u'Section %s not found in %s' % (section, name_file))
+            raise RuntimeError(u'Section %s not found in %s' % (section, self.name_file))
         self.section = section
-
+    
     def get(self, option):
         return self.conf.get(self.section, option)
     
@@ -303,4 +305,3 @@ class Configuration(object):
     
     def has_option(self, option):
         return self.conf.has_option(self.section, option)
-    

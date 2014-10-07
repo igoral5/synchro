@@ -28,6 +28,34 @@ parser.add_argument("--port-es", dest='port_es', help='Number port ElasticSearch
 parser.add_argument("--only", dest='only_create', help="Only create file, without loading into ElasticSearch", action='store_true')
 args = parser.parse_args()
 
+class Configurartion(object):
+    '''Замена основному классу конфигурации'''
+    def __init__(self, args):
+        self.map = {}
+        for key in args.__dict__:
+            self.map[key] = args.__dict__[key]
+    
+    def set_section(self, section):
+        self.section = section
+    
+    def get(self, option):
+        return self.map[option]
+    
+    def getint(self, option):
+        return int(self.map[option])
+    
+    def getfloat(self, option):
+        return float(self.map[option])
+    
+    def getboolean(self, option):
+        return bool(self.map[option])
+    
+    def has_option(self, option):
+        return option in self.map
+
+conf = Configurartion(args)
+conf.set_section('moscow')
+
 logger = logging.getLogger(os.path.splitext(os.path.basename(__file__))[0])
 formatter = logging.Formatter(fmt='%(asctime)s %(levelname)-8s %(name)s %(message)s', datefmt="%Y-%m-%d %H:%M:%S %Z")
 ch = logging.StreamHandler()
@@ -50,7 +78,7 @@ class Stations:
 
     def load(self):
         handler = parsers.StopsSubXMLParser()
-        util.http_request('/station.php', handler, args, logger)
+        util.http_request('/station.php', handler, conf, logger)
         for st_id in handler.stations:
             station = handler.stations[st_id]
             station['in_moscow_region'] = self.in_moscow_region(station['location'])
@@ -123,7 +151,7 @@ class UrbanRoutes:
     
     def load(self):
         handler = parsers.MarshesSubXMLParser(logger)
-        util.http_request('/', handler, args, logger)
+        util.http_request('/', handler, conf, logger)
         self.marshes = handler.marshes
         self.load_old()
     
