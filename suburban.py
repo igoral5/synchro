@@ -54,7 +54,7 @@ class Configurartion(object):
         return option in self.map
 
 conf = Configurartion(args)
-conf.set_section('moscow')
+conf.set_section(args.url[1:])
 
 logger = logging.getLogger(os.path.splitext(os.path.basename(__file__))[0])
 formatter = logging.Formatter(fmt='%(asctime)s %(levelname)-8s %(name)s %(message)s', datefmt="%Y-%m-%d %H:%M:%S %Z")
