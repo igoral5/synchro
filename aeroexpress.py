@@ -19,7 +19,7 @@ parser = argparse.ArgumentParser(description='Add routes aeroexpress in ElasticS
 parser.add_argument("-o", "--only", dest='only_create', help="Only create file, without loading into ElasticSearch", action='store_true')
 args = parser.parse_args()
 
-conf = util.Configuration('sysnchro.conf')
+conf = util.Configuration('synchro.conf')
 conf.set_section('moscow')
 
 logger = logging.getLogger(os.path.splitext(os.path.basename(__file__))[0])
@@ -31,7 +31,6 @@ logger.addHandler(ch)
 logger_elasticsearch = logging.getLogger('elasticsearch')
 logger_elasticsearch.addHandler(ch)
 logger.setLevel(logging.DEBUG)
-logger_elasticsearch.setLevel(logging.DEBUG)
 
 class SynchroStations:
     '''Синхронизация остановок транспорта'''

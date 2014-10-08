@@ -71,7 +71,7 @@ def http_request(request, handler, conf, logger=None):
                 else:
                     raise socket.timeout(message)
         except Exception, e:
-            if n == conf.get('num-try'):
+            if n == conf.getint('num-try'):
                 raise
             if logger:
                 logger.exception(e)

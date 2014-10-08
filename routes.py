@@ -28,7 +28,7 @@ logger.addHandler(logging.NullHandler())
 
 route_count = util.tree()
 
-redis_client = redis.StrictRedis( host = conf.host_redis, port = args.port_redis, db = args.db_redis )
+redis_client = redis.StrictRedis( host = args.host_redis, port = args.port_redis, db = args.db_redis )
 es_client = Elasticsearch([{'host': args.host_es, 'port': args.port_es}])
 
 if args.region:

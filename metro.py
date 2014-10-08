@@ -31,7 +31,6 @@ logger.addHandler(ch)
 logger_elasticsearch = logging.getLogger('elasticsearch')
 logger_elasticsearch.addHandler(ch)
 logger.setLevel(logging.DEBUG)
-logger_elasticsearch.setLevel(logging.DEBUG)
 
 class SynchroStations:
     '''Синхронизация остановок транспорта'''

@@ -12,7 +12,7 @@ import util
 
 util.conf_io()
 
-conf = util.Configuration('sysnchro.conf')
+conf = util.Configuration('synchro.conf')
 
 parser = argparse.ArgumentParser(description='Check telemetry and routes information.')
 parser.add_argument("--host-redis", dest='host_redis', help='Host name redis, default localhost', default='localhost')
