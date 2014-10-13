@@ -4,6 +4,7 @@
 /.project
 /.pydevproject
 /aeroexpress.json
+/addresses.json
 /metro.json
 /suburban.json
 /cpes.json
