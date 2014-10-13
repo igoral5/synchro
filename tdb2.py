@@ -40,7 +40,7 @@ def conv(ts, cs):
         value = c['fn'](t)
         if i != 0:
             res += u'|'
-        if value:
+        if value != None:
             res += c['format'].format(value)
         else:
             res += u'NULL'.center(c['size'])
