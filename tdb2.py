@@ -20,8 +20,7 @@ conf.set_section(args.database)
 
 def convert_to_float(s):
     if s:
-        s = s.replace(',', '.')
-        return float(s)
+        return float(s.replace(',', '.'))
     return s
 
 def convert_to_int(s):
