@@ -51,8 +51,12 @@ def main():
     try:
         conn = ibm_db.connect('DATABASE=%s;HOSTNAME=%s;PORT=%d;PROTOCOL=%s;UID=%s;PWD=%s;' % (conf.section, conf.get('hostname'), conf.getint('port'), 
                                                                                               conf.get('protocol'), conf.get('user'), conf.get('passwd')), '', '')
-        stmt = ibm_db.exec_immediate(conn, args.request[0])
-        result = ibm_db.fetch_tuple(stmt)
+        stmt = ibm_db.exec_immediate(conn, unicode(args.request[0], 'utf-8'))
+        try:
+            result = ibm_db.fetch_tuple(stmt)
+        except:
+            print u'Обработано строк %d' % ibm_db.num_rows(stmt)
+            return
         column_conv = []
         head = u''
         underline=u''
@@ -69,7 +73,7 @@ def main():
             type_field = ibm_db.field_type(stmt, i)
             if type_field == 'float' or type_field == 'real' or type_field == 'decimal':
                 column_conv.append({'size': size, 'format': u'{0:%d.%df}' % (size, (size - ibm_db.field_precision(stmt, i))), 'fn': convert_to_float})
-            elif type_field == 'int':
+            elif type_field == 'int' or type_field == 'bigint':
                 column_conv.append({'size': size, 'format': u'{0:%dd}' % size, 'fn': convert_to_int})
             else:
                 column_conv.append({'size': size, 'format': u'{0:%ds}' % size, 'fn': without_convert})
