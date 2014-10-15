@@ -50,7 +50,7 @@ def main():
     conn = None
     stmt = None
     if not conf.has_option('passwd'):
-        conf.conf.set(conf.section, 'passwd', getpass.getpass('Пароль: '))
+        conf.conf.set(conf.section, 'passwd', unicode(getpass.getpass('Пароль: '), 'utf-8'))
     try:
         conn = ibm_db.connect('DATABASE=%s;HOSTNAME=%s;PORT=%d;PROTOCOL=%s;UID=%s;PWD=%s;' % (conf.get('database'), conf.get('hostname'), conf.getint('port'), 
                                                                                               conf.get('protocol'), conf.get('user'), conf.get('passwd')), '', '')
