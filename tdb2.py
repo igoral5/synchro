@@ -55,35 +55,42 @@ def main():
         try:
             result = ibm_db.fetch_tuple(stmt)
         except:
-            print u'Обработано строк %d' % ibm_db.num_rows(stmt)
-            return
-        column_conv = []
-        head = u''
-        underline=u''
-        for i in xrange(len(result)):
-            if i != 0:
-                head += u'|'
-                underline += u'+'
-            name = ibm_db.field_name(stmt, i)
-            size = ibm_db.field_display_size(stmt, i)
-            if len(name) > size:
-                size = len(name)
-            if ibm_db.field_nullable(stmt, i) and len(u'NULL') > size:
-                size = len(u'NULL')
-            type_field = ibm_db.field_type(stmt, i)
-            if type_field == 'float' or type_field == 'real' or type_field == 'decimal':
-                column_conv.append({'size': size, 'format': u'{0:%d.%df}' % (size, (size - ibm_db.field_precision(stmt, i))), 'fn': convert_to_float})
-            elif type_field == 'int' or type_field == 'bigint':
-                column_conv.append({'size': size, 'format': u'{0:%dd}' % size, 'fn': convert_to_int})
+            rows = ibm_db.num_rows(stmt)
+            if rows != -1:
+                print u'Обработано строк %d' % rows
             else:
-                column_conv.append({'size': size, 'format': u'{0:%ds}' % size, 'fn': without_convert})
-            head += name.center(size)
-            underline += u'-' * size
-        print head
-        print underline
-        while( result ):
-            print conv(result, column_conv)
-            result = ibm_db.fetch_tuple(stmt)
+                print u'Команда выполнена'
+            return
+        if result:
+            column_conv = []
+            head = u''
+            underline=u''
+            for i in xrange(len(result)):
+                if i != 0:
+                    head += u'|'
+                    underline += u'+'
+                name = ibm_db.field_name(stmt, i)
+                size = ibm_db.field_display_size(stmt, i)
+                if len(name) > size:
+                    size = len(name)
+                if ibm_db.field_nullable(stmt, i) and len(u'NULL') > size:
+                    size = len(u'NULL')
+                type_field = ibm_db.field_type(stmt, i)
+                if type_field == 'float' or type_field == 'real' or type_field == 'decimal':
+                    column_conv.append({'size': size, 'format': u'{0:%d.%df}' % (size, (size - ibm_db.field_precision(stmt, i))), 'fn': convert_to_float})
+                elif type_field == 'int' or type_field == 'bigint':
+                    column_conv.append({'size': size, 'format': u'{0:%dd}' % size, 'fn': convert_to_int})
+                else:
+                    column_conv.append({'size': size, 'format': u'{0:%ds}' % size, 'fn': without_convert})
+                head += name.center(size)
+                underline += u'-' * size
+            print head
+            print underline
+            while( result ):
+                print conv(result, column_conv)
+                result = ibm_db.fetch_tuple(stmt)
+        else:
+            print u'Результата не возвращено'
     except Exception as e:
         print >> sys.stderr, e
         sys.exit(-1)
