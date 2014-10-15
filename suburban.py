@@ -28,33 +28,11 @@ parser.add_argument("--port-es", dest='port_es', help='Number port ElasticSearch
 parser.add_argument("--only", dest='only_create', help="Only create file, without loading into ElasticSearch", action='store_true')
 args = parser.parse_args()
 
-class Configurartion(object):
-    '''Замена основному классу конфигурации'''
-    def __init__(self, args):
-        self.map = {}
-        for key in args.__dict__:
-            self.map[key] = args.__dict__[key]
-    
-    def set_section(self, section):
-        self.section = section
-    
-    def get(self, option):
-        return self.map[option]
-    
-    def getint(self, option):
-        return int(self.map[option])
-    
-    def getfloat(self, option):
-        return float(self.map[option])
-    
-    def getboolean(self, option):
-        return bool(self.map[option])
-    
-    def has_option(self, option):
-        return option in self.map
-
-conf = Configurartion(args)
+conf = util.Configuration()
+conf.conf.add_section(args.url[1:])
 conf.set_section(args.url[1:])
+for key in args.__dict__:
+    conf.conf.set(conf.section, key, args.__dict__[key])
 
 logger = logging.getLogger(os.path.splitext(os.path.basename(__file__))[0])
 formatter = logging.Formatter(fmt='%(asctime)s %(levelname)-8s %(name)s %(message)s', datefmt="%Y-%m-%d %H:%M:%S %Z")

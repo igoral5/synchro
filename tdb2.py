@@ -5,6 +5,7 @@
 import ibm_db
 import sys
 import argparse
+import getpass
 import util
 
 util.conf_io()
@@ -12,7 +13,7 @@ util.conf_io()
 conf = util.Configuration('tdb2.conf')
 
 argparser = argparse.ArgumentParser(description='Makes request to database DB2.')
-argparser.add_argument("-d", "--database", dest='database', help="Name database and name section in configuration, default SAMPLE", default='SAMPLE', choices=conf.sections())
+argparser.add_argument("-d", "--database", dest='database', help="Name section in configuration, default SAMPLE", default='SAMPLE', choices=conf.sections())
 argparser.add_argument("request", metavar='request', nargs=1, help='Request to database DB2')
 args = argparser.parse_args()
 
@@ -48,8 +49,10 @@ def conv(ts, cs):
 def main():
     conn = None
     stmt = None
+    if not conf.has_option('passwd'):
+        conf.conf.set(conf.section, 'passwd', getpass.getpass('Пароль: '))
     try:
-        conn = ibm_db.connect('DATABASE=%s;HOSTNAME=%s;PORT=%d;PROTOCOL=%s;UID=%s;PWD=%s;' % (conf.section, conf.get('hostname'), conf.getint('port'), 
+        conn = ibm_db.connect('DATABASE=%s;HOSTNAME=%s;PORT=%d;PROTOCOL=%s;UID=%s;PWD=%s;' % (conf.get('database'), conf.get('hostname'), conf.getint('port'), 
                                                                                               conf.get('protocol'), conf.get('user'), conf.get('passwd')), '', '')
         stmt = ibm_db.exec_immediate(conn, unicode(args.request[0], 'utf-8'))
         try:

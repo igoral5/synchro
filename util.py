@@ -276,12 +276,15 @@ class TwoTmpFiles(object):
 
 class Configuration(object):
     '''Класс конфигурации'''
-    def __init__(self, name_file):
-        fp = codecs.open(name_file, 'r', encoding='utf-8')
+    def __init__(self, name_file=None):
         self.conf = ConfigParser.ConfigParser()
-        self.conf.readfp(fp, name_file)
-        fp.close()
-        self.name_file = name_file
+        if name_file:
+            fp = codecs.open(name_file, 'r', encoding='utf-8')
+            self.conf.readfp(fp, name_file)
+            fp.close()
+            self.name_file = name_file
+        else:
+            self.name_file = 'unknown'
     
     def set_section(self, section):
         if not self.conf.has_section(section):
