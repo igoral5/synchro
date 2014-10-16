@@ -19,11 +19,12 @@ def main():
     es_index = IndicesClient(es_client)
     list_indexes = [index for index in es_index.status()['indices']]
     regexp = re.compile(u'(\d{4})\.(\d{2})\.(\d{2})', re.IGNORECASE | re.UNICODE )
+    current_date = datetime.date.today()
     for index in list_indexes:
         res = regexp.search(index)
         if res:
             date_indx = datetime.date(year=int(res.group(1)), month=int(res.group(2)), day=int(res.group(3)))
-            if (datetime.date.today() - date_indx).days > args.old:
+            if (current_date - date_indx).days > args.old:
                 es_index.delete(index)
 
 if __name__ == '__main__':
