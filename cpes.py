@@ -30,7 +30,7 @@ logger_elasticsearch.addHandler(ch)
 
 util.parse_args(args, logger)
 
-def main():
+def gen():
     dest_ids = set()
     try:
         for hit in args.documents_destination:
@@ -40,7 +40,6 @@ def main():
             dest_ids.add((index2, type2, id2))
     except Exception as e:
         logger.error(e)
-    actions = []
     for hit in args.documents_source:
         source_index = hit['_index']
         destination_index = args.translate.trans(source_index)
@@ -50,29 +49,32 @@ def main():
         if (destination_index, source_type, source_id) in dest_ids:
             dest_doc = args.es_dest.get(destination_index, source_id, source_type)['_source']
             if source_doc != dest_doc:
-                actions.append({
+                yield {
                     '_index': destination_index,
                     '_type': source_type,
                     '_id': source_id,
                     '_source': source_doc
-                })
+                }
             dest_ids.discard((destination_index, source_type, source_id))
         else:
-            actions.append({
+            yield {
                 '_index': destination_index,
                 '_type': source_type,
                 '_id': source_id,
                 '_source': source_doc
-            })
+            }
     for (dest_index, dest_type, dest_id) in dest_ids:
-        actions.append({
+        yield {
             '_op_type': 'delete',
             '_index': dest_index,
             '_type': dest_type,
             '_id': dest_id
-        })
-    if len(actions) > 0:
-        success, failed = helpers.bulk(args.es_dest, actions, True) 
+        }
+
+def main():
+    actions = gen()
+    success, failed = helpers.bulk(args.es_dest, actions, True)
+    if success + failed != 0: 
         if failed == 0:
             logger.info(u'Индексы синхронизированы, добавлено, изменено, удалено %d записей', success)
         else:
