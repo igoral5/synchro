@@ -78,7 +78,7 @@ def main():
         if failed == 0:
             logger.info(u'Индексы синхронизированы, добавлено, изменено, удалено %d записей', success)
         else:
-            logger.error(u'Ошибка загрузки данных в ElasticSearch')
+            logger.error(u'Ошибка загрузки данных в ElasticSearch, ошибок %d, успешно %d' % (failed, success))
     else:
         logger.info(u'Индексы идентичны')
 
