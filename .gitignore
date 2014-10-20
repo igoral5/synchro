@@ -16,5 +16,5 @@
 synchro-krasnoyarsk.json*
 synchro-moscow.json*
 synchro-podolsk.json*
-/tdb2.py.lprof
+*.lprof
 
