@@ -258,6 +258,44 @@ def parse_args(args, logger=None):
         args.documents_source = scan(args.es_source, query=query_source, index=source_index)
     args.translate = TranslateName(source_index, destination_index)
 
+def parse_args1(args, logger=None):
+    '''Функция передназначена для парсинга аргументов при копировании в файл'''
+    regexp = re.compile(u'^(http://)?([\w\.-]+)(:(\d+))?/([\w\*\.\?,-]+)(/([\w\*\.\?,-]+))?/?$', re.IGNORECASE | re.UNICODE)
+    res = regexp.match(args.source[0])
+    if res:
+        args.source_host = res.group(2)
+        source_index = res.group(5)
+        source_doc = res.group(7)
+        if res.group(4):
+            args.source_port = int(res.group(4))
+        else:
+            args.source_port = 9200
+    else:
+        if logger:
+            logger.error(u'Неверный формат источника ElasticSearch')
+        else:
+            print >> sys.stderr, u'Неверный формат источника ElasticSearch'
+        sys.exit(1)
+    args.es_source = Elasticsearch([{'host': args.source_host, 'port': args.source_port}])
+    if args.query_sour:
+        try:
+            query_source = json.loads(args.query_sour, encoding='utf-8')
+        except:
+            if logger:
+                logger.error(u'Неверный формат запроса источника')
+            else:
+                print >> sys.stderr, u'Неверный формат запроса источника'
+            sys.exit(1)
+    else:
+        if args.group_code:
+            query_source = {'query': {'prefix': { '_id': '%d:' % args.group_code }}}
+        else:
+            query_source = {'query': {'match_all': {}}}
+    if source_doc:
+        args.documents_source = scan(args.es_source, query=query_source, index=source_index, doc_type=source_doc)
+    else:
+        args.documents_source = scan(args.es_source, query=query_source, index=source_index)
+
 class TwoTmpFiles(object):
     def __init__(self):
         self.file1 = codecs.open(tempfile.mktemp(), 'w', encoding='utf-8')
