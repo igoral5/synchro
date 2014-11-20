@@ -27,11 +27,15 @@ while cur_date.year == 2014:
 i = 0
 for line in source_file:
     if i % 2 == 0:
-        destination_file.write(u'%s' % line)
+        meta = json.loads(line)
+        destination_file.write(line)
     else:
-        suburban = json.loads(line)
-        suburban['schedule'] = schedule
-        destination_file.write(u"%s\n" % json.dumps(suburban, ensure_ascii=False))
+        if meta[u'index'][u'_type'] == u'route':
+            suburban = json.loads(line)
+            suburban['schedule'] = schedule
+            destination_file.write(u"%s\n" % json.dumps(suburban, ensure_ascii=False))
+        else:
+            destination_file.write(line)
     i += 1
 source_file.close()
 destination_file.close()
