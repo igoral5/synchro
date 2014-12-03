@@ -1,4 +1,4 @@
-/elasticsearch/
+/elasticsearch/*.json
 *.log*
 /.settings/
 /.project
